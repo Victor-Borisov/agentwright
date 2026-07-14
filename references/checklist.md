@@ -1,6 +1,6 @@
 # Agentwright Checklist
 
-**Knowledge version: 1 · calibrated for Claude Code 2.1.x** (see
+**Knowledge version: 2 · calibrated for Claude Code 2.1.x** (see
 `calibration.json`). Items added in later knowledge versions must carry a
 `(new in vN)` marker until scored once — the score report treats them as "the bar
 moved", never as user regression (see scoring.md § Evolution contract).
@@ -37,7 +37,7 @@ Cost: `HIGH` = security / built into the harness / irreversible → oversight ex
 | ID | Item | Axis | Cost | Probe |
 |---|---|---|---|---|
 | S1 | No secrets in repo files or git history | X | HIGH | `repo.secrets` (gitleaks or patterns) |
-| S2 | `.gitignore` covers `.env`, keys, certs | X | HIGH | `repo.gitignore_env_covered` |
+| S2 | secret-shaped files are git-ignored (`.env`, keys, certs) — any ignore source counts for the user, committed `.gitignore` for the project (rescoped in v2) | X | HIGH | `repo.env_ignore` (effective, any source) / `repo.gitignore_env_covered` (committed) |
 | S3 | Permissions narrowed: deny-list on destructive commands exists; no `allow: ["*"]`; not living in `bypassPermissions` | X | HIGH | `user.settings` + `project_level.settings`; journal `permission_request` rate shows tuning quality |
 | S4 | MCP tokens via env vars, not plaintext; servers of known origin | X | HIGH | `*.mcp.plaintext_secret_suspect` |
 | S5 | Destructive-command guard (deny rules or PreToolUse hook for `rm -rf`, force-push, `DROP TABLE`) | X | HIGH | settings deny entries / hooks |

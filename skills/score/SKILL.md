@@ -50,7 +50,11 @@ work without it.
 ### 2. Map facts to checklist statuses — with stickiness
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/checklist.md`. For every S/A/B/C item, set the
-status directly from facts. Read the actual CLAUDE.md files (paths are in the facts)
+status directly from facts. S2 reads `repo.env_ignore` with two verdicts
+(scoring.md § S2 has two readings): effective coverage from any source satisfies
+the USER; only `committed` coverage satisfies PROJECT readiness — local/global
+coverage keeps the project cap but the report must name it as "covered on this
+machine, team-level fix pending", not as an unprotected repo. Read the actual CLAUDE.md files (paths are in the facts)
 to judge substance for A1/A2 — generic platitudes ("write clean code") = `partial`.
 
 **Stickiness (scoring.md § Reproducibility):** previous `items[]` are the prior.

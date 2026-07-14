@@ -180,6 +180,38 @@ def secrets_scan(proj):
     return {"tool": "patterns", "findings": findings, "truncated": truncated}
 
 
+def env_ignore_probe(path):
+    """Ask git itself whether secret-shaped files would be ignored — this honors
+    ALL ignore sources: the committed .gitignore, the repo-local (uncommitted)
+    .git/info/exclude, and the user's global core.excludesFile. Returns
+    {"effective": bool, "sources": [...]} or None when git is unavailable.
+    `effective` keys on .env — the primary leak vector."""
+    if not shutil.which("git"):
+        return None
+    try:
+        out = subprocess.run(
+            ["git", "check-ignore", "-v", "--", ".env", "probe.pem", "probe.key", "id_rsa"],
+            cwd=path, capture_output=True, text=True, timeout=10)
+    except Exception:
+        return None
+    effective = False
+    sources = set()
+    for line in out.stdout.splitlines():
+        if ":" not in line or "\t" not in line:
+            continue
+        src = line.split(":", 1)[0].strip()
+        ignored = line.rsplit("\t", 1)[-1].strip()
+        if src.endswith(".git/info/exclude") or src.endswith("info/exclude"):
+            sources.add("local_exclude")
+        elif src.endswith(".gitignore") and not os.path.isabs(src):
+            sources.add("committed")
+        else:
+            sources.add("global")
+        if ignored == ".env":
+            effective = True
+    return {"effective": effective, "sources": sorted(sources)}
+
+
 def repo_facts(path):
     """Repo-scoped facts for one git repository (S2, B3, secrets probes)."""
     gitignore_env = False
@@ -197,6 +229,7 @@ def repo_facts(path):
     return {
         "is_git": True,
         "gitignore_env_covered": gitignore_env,
+        "env_ignore": env_ignore_probe(path),
         "ci_workflows": ci_workflows,
         "gitlab_ci": os.path.isfile(os.path.join(path, ".gitlab-ci.yml")),
         "precommit": precommit,

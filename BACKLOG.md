@@ -139,6 +139,17 @@ are fixed.
   salt); real third-party verification requires an external signing service, out of
   scope for the local plugin.
 
+## Done in v0.7.0 (S2 without commit rights — field find, 2026-07-14)
+
+- [x] **[MAJOR] S2 was blind to personal ignore protection** — a developer without
+  commit rights to the team `.gitignore` (common in company repos) had no way to
+  clear S2, even with `.git/info/exclude` or a global `core.excludesFile` fully
+  covering secrets. Scanner now asks git itself (`git check-ignore -v`) and reports
+  `env_ignore: {effective, sources: committed|local_exclude|global}`; scoring split:
+  effective coverage (any source) clears the USER, committed coverage required for
+  PROJECT readiness — local-only coverage renames the cap to "covered on this
+  machine; team-level fix pending".
+
 ## Open — candidates for v0.5+ (need real usage data or bigger design)
 
 - [ ] **[MAJOR] Log tool successes per category** (counts only, no content) so a failure

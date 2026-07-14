@@ -137,7 +137,16 @@ Project-scoped items (S1–S2 repo findings, A1, B2–B3, C project artifacts) f
 **per-project readiness score**, keyed by project in the scorecard. When the scan
 ran in workspace mode (a non-repo root containing repos), each repo gets its own
 `project_scores{}` entry keyed by repo name; the root itself is never scored — a
-workspace root is a layout, not a project, and "not a repo" is not "unverified". The security gate
+workspace root is a layout, not a project, and "not a repo" is not "unverified".
+
+**S2 has two readings** (`repo.env_ignore`): for the USER score, effective coverage
+from ANY source counts in full — a `local_exclude` or `global` ignore proves this
+user cannot leak secrets from this machine, and personal protection is often the
+only lever available to a developer without commit rights to `.gitignore`. For
+PROJECT readiness, only `committed` coverage counts in full: an ignore that lives
+on one machine does not protect the rest of the team, so the project cap stands,
+reported as "covered on this machine; team-level `.gitignore` still missing" — and
+the pending team fix is exactly the kind of escalation the growth plan should name. The security gate
 always caps the project score; it caps the USER score only when the finding lives in
 user-level config or user-authored artifacts. (Rationale: an inherited legacy repo's
 old secret describes the repo's past, not the user's maturity — and a certifiable

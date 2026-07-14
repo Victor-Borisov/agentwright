@@ -1,6 +1,6 @@
 {
   "name": "agentwright",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "homepage": "https://victor-borisov.github.io/agentwright/",
   "repository": "https://github.com/Victor-Borisov/agentwright",
   "description": "Harness maturity score & coach for Claude Code. Turns your real friction into rules and hooks, measures what stays valuable as models improve (landscape, judgment, oversight), and grows your Agentwright Score toward the Agent Architect level. Collects signals only via its own hooks and repo artifacts — never reads chat history or transcripts.",
