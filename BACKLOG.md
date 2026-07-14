@@ -150,6 +150,25 @@ are fixed.
   PROJECT readiness — local-only coverage renames the cap to "covered on this
   machine; team-level fix pending".
 
+## Done in v0.8.0 (security-gate fairness + read-only verification — field find, 2026-07-14)
+
+- [x] **[BLOCKER] Verification executed a live write to prove a finding** — a score run
+  ran `create table #probe; insert; select` against a production DB via a self-authored
+  MCP to demonstrate the SQL validator was bypassable. Temp table = no real damage, but
+  an assessment tool must NEVER issue a state-changing action. New hard rule (scoring.md,
+  checklist S-gate, score + coach skills, MAINTAINING privacy lines): guards are verified
+  by READING the artifact/code path, never by driving the destructive action. No write/
+  DDL/delete/force-push/destructive-shell against any target on any tier, ever.
+- [x] **[MAJOR] Security gate punished guard-builders and environmental risk as if
+  user faults** — a `partial` on ANY S item capped the user at 84, so a user with a
+  powerful capability + an imperfect self-built guard scored WORSE than a user with no
+  capability at all, and an environmental privilege (DB `db_owner` the user cannot
+  change) capped the USER not the project. Gate now asks two questions first (whose
+  finding / did they mitigate): environmental risk caps PROJECT only; a built-but-
+  imperfect guard never drags the user below Architect while residual risk is
+  environmental. S5 rescoped like S2 (user artifacts cap user; DB privilege caps
+  project). knowledge_version 2 → 3.
+
 ## Open — candidates for v0.5+ (need real usage data or bigger design)
 
 - [ ] **[MAJOR] Log tool successes per category** (counts only, no content) so a failure

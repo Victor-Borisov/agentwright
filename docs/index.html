@@ -252,9 +252,9 @@
 <nav class="top">
   <div class="row">
     <span class="b">Agentwright</span>
-    <a href="#measures">Measures</a>
     <a href="#day">A day</a>
     <a href="#cycle">Coach cycle</a>
+    <a href="#measures">Measures</a>
     <a href="#score">Score</a>
     <a href="#commands">Commands</a>
     <a href="#privacy">Privacy</a>
@@ -278,48 +278,14 @@
   </p>
 </header>
 
-<!-- ================= WHAT IT MEASURES ================= -->
-<section id="measures">
-  <h2>What it measures</h2>
-  <p class="lede">
-    Mechanics the model performs for you aren't graded. Four things that grow
-    <strong>more</strong> valuable as models improve are:
-  </p>
-  <div class="grid4">
-    <div class="card">
-      <h3><span class="axis-dot" style="background:var(--accent)"></span>Landscape</h3>
-      <p>Do you know a lever <strong>exists</strong> — hooks, gates, MCP, subagents, plan mode?</p>
-    </div>
-    <div class="card">
-      <h3><span class="axis-dot" style="background:var(--axis-judgment)"></span>Judgment</h3>
-      <p>Given a real friction, do you pick the <strong>appropriate</strong> lever — and justify it by consequences?</p>
-    </div>
-    <div class="card">
-      <h3><span class="axis-dot" style="background:var(--axis-oversight)"></span>Oversight</h3>
-      <p>Do you catch quiet defects where errors are <strong>expensive</strong> — security, harness, irreversible actions?</p>
-    </div>
-    <div class="card">
-      <h3><span class="axis-dot" style="background:var(--axis-outcome)"></span>Outcome</h3>
-      <p>Is there an appropriate, working, <strong>safe</strong> setup — regardless of who built it?</p>
-    </div>
-  </div>
-  <div class="callout good" style="margin-top:18px">
-    <h3>A deliberate "no" earns full credit</h3>
-    <p>
-      Don't use a lever, but can explain the tradeoff that rules it out in your context?
-      Full credit, marked as a <strong>conscious refusal</strong>. Seniority is
-      <em>closed consciously</em>, not <em>everything installed</em>.
-      Try it yourself in the <a href="#score">score simulator</a> below.
-    </p>
-  </div>
-</section>
-
 <!-- ================= A DAY THROUGH THE PLUGIN'S EYES ================= -->
 <section id="day">
   <h2>A day through the plugin's eyes</h2>
   <p class="lede">
     Hooks log only minimal metadata: event kind, tool name, failure category, project,
-    timestamp. Here is one real-shaped day — <strong>hover or tab over the marks</strong> to
+    timestamp. Install it — then just work as usual. When something annoying is invisible to
+    hooks, one line of <code>/agentwright:log</code> in the moment drops a note into the same
+    journal. Here is one real-shaped day — <strong>hover or tab over the marks</strong> to
     see exactly what gets recorded, and what the detectors make of it.
   </p>
 
@@ -380,7 +346,7 @@
     <div class="node hooked">
       <div class="k">All day · passive</div>
       <div class="t">Hooks append to the journal</div>
-      <div class="d">Per-day, per-session files. No analysis.</div>
+      <div class="d">Per-day, per-session files, plus your /log notes. No analysis.</div>
     </div>
     <div class="arrow">→</div>
     <div class="node hooked">
@@ -429,6 +395,42 @@
     ⟲ The next run starts at Step 0 again — every fix is eventually verified by its effect,
     or rolled back. That loop is what no analytics dashboard gives you.
   </p>
+</section>
+
+<!-- ================= WHAT IT MEASURES ================= -->
+<section id="measures">
+  <h2>What it measures</h2>
+  <p class="lede">
+    Mechanics the model performs for you aren't graded. Four things that grow
+    <strong>more</strong> valuable as models improve are:
+  </p>
+  <div class="grid4">
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--accent)"></span>Landscape</h3>
+      <p>Do you know a lever <strong>exists</strong> — hooks, gates, MCP, subagents, plan mode?</p>
+    </div>
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--axis-judgment)"></span>Judgment</h3>
+      <p>Given a real friction, do you pick the <strong>appropriate</strong> lever — and justify it by consequences?</p>
+    </div>
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--axis-oversight)"></span>Oversight</h3>
+      <p>Do you catch quiet defects where errors are <strong>expensive</strong> — security, harness, irreversible actions?</p>
+    </div>
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--axis-outcome)"></span>Outcome</h3>
+      <p>Is there an appropriate, working, <strong>safe</strong> setup — regardless of who built it?</p>
+    </div>
+  </div>
+  <div class="callout good" style="margin-top:18px">
+    <h3>A deliberate "no" earns full credit</h3>
+    <p>
+      Don't use a lever, but can explain the tradeoff that rules it out in your context?
+      Full credit, marked as a <strong>conscious refusal</strong>. Seniority is
+      <em>closed consciously</em>, not <em>everything installed</em>.
+      Try it yourself in the <a href="#score">score simulator</a> below.
+    </p>
+  </div>
 </section>
 
 <!-- ================= SCORE + SIMULATOR ================= -->
@@ -502,7 +504,7 @@
     </tbody>
   </table>
 
-  <h3 style="margin-top:30px">The rules behind what you just clicked</h3>
+  <h3 style="margin-top:30px">Statuses and what they earn</h3>
   <table>
     <thead><tr><th>Status</th><th>Meaning</th><th class="num-col">Credit</th></tr></thead>
     <tbody>

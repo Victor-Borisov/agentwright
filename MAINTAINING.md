@@ -123,3 +123,9 @@ metrics (or fix a defect) is backlog, not scope.
   text, tool outputs, or file paths.
 - No network calls from the plugin. Anything that would ever transmit data must be
   a separate, strictly opt-in component with its own consent flow — never this plugin.
+- No state-changing actions, ever — not to verify a finding, not to test a guard.
+  The plugin only READS (files, config, guard source) and appends to its own journal.
+  It must never issue a write/DDL/delete/force-push/destructive-shell against any
+  target on any tier. Guards are assessed by reading their code path. (Field find
+  2026-07-14: a score run executed `create/insert` on a live DB to prove an MCP
+  validator bypass — exactly the line this rule draws.)

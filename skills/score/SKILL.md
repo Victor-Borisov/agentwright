@@ -50,7 +50,23 @@ work without it.
 ### 2. Map facts to checklist statuses — with stickiness
 
 Read `${CLAUDE_PLUGIN_ROOT}/references/checklist.md`. For every S/A/B/C item, set the
-status directly from facts. S2 reads `repo.env_ignore` with two verdicts
+status directly from facts.
+
+**Verifying a security guard is read-only (scoring.md § Security gate).** To judge
+S3/S4/S5 you may READ the deny-list, hooks, and any self-authored MCP guard source —
+never RUN a probe that changes state. Do NOT execute SQL writes/DDL, force-push,
+deletes, or destructive shell against any target (dev or prod) to demonstrate a
+bypass; show it from the code path. A finding that would require a state-changing
+action to confirm is reported as "bypass visible in source" or left `not_assessed` —
+never proven by doing it.
+
+**S5 splits like S2 (scoring.md § S5 has the same split).** A guard the user authored
+(deny-list, MCP validator) with a gap is a user-level `partial`; but destructive
+POWER granted by the environment (DB `db_owner`/`sa` the user cannot change) caps the
+PROJECT, not the user, and a built-but-imperfect guard never drags the user below
+Architect while the residual risk is environmental.
+
+S2 reads `repo.env_ignore` with two verdicts
 (scoring.md § S2 has two readings): effective coverage from any source satisfies
 the USER; only `committed` coverage satisfies PROJECT readiness — local/global
 coverage keeps the project cap but the report must name it as "covered on this

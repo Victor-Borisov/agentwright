@@ -66,16 +66,43 @@ The caps are NOT arbitrary constants — they are level boundaries minus one, so
 gate speaks the language of the levels. If the level bands ever change, the caps
 move with them.
 
-- Any S item `absent` with a live finding (real secret, `allow:["*"]`, bypassPermissions
-  as default) → score = min(score, **59**) — one below the Agent Builder threshold:
-  *with a live security hole you cannot even be a Builder.*
-- Any S item `partial` → score = min(score, **84**) — one below the Agent Architect
-  threshold: *you can be a solid Builder, but not an Architect with half-closed
-  security.*
+**Two questions before any cap applies** (added v3 — a cap punishes a person, so it
+must key on what the person controls and what they already did):
+
+1. **Whose finding is it?** A risk that lives in the environment the user cannot
+   change — an over-privileged shared DB login, an inherited legacy secret, a
+   team-owned `.gitignore` — caps the PROJECT readiness score, NOT the user score.
+   The user score is capped only by a hole in user-level config or user-authored
+   artifacts. (This is the same user-vs-project rule as below, applied to the gate.)
+2. **Did they mitigate?** A guard the user built that is present but imperfect
+   (a validator with a bypass, a deny-list with a gap) is graded `partial` on
+   credit — but a built-and-imperfect guard is *more* mature than none, so it does
+   NOT drag the user score below the Architect line while the residual risk is
+   environmental. Capping a guard-builder below a build-nothing user is a perverse
+   incentive and is forbidden.
+
+With those settled, the caps:
+
+- Any **user-controllable** S item `absent` with a live finding (real secret,
+  `allow:["*"]`, bypassPermissions as default) → score = min(score, **59**) — one
+  below Agent Builder: *with a live security hole you cannot even be a Builder.*
+- Any **user-controllable, unmitigated** S item `partial` → score = min(score,
+  **84**) — one below Agent Architect: *a solid Builder, but not an Architect with
+  half-closed security.* A `partial` whose residual risk is environmental caps the
+  PROJECT score only.
 - Any S item `not_assessed` (probe unavailable) → also min(score, **84**):
   *unverified security cannot be Architect either.* This keeps installing better
   probes (gitleaks) from ever lowering a score relative to not installing them.
-- The report must name the capping item and place "Step 0: Hardening" first in the plan.
+- The report must name the capping item, say whether it capped the user or a
+  project, and place "Step 0: Hardening" first in the plan.
+
+**Verification is read-only — always.** Establishing whether a guard holds is done
+by READING the artifact (MCP source, deny-list, hook, config), never by executing
+an exploit. The plugin must never issue a state-changing action — no writes, DDL,
+force-push, deletes, or destructive shell — against any target, on any tier, to
+"prove" a finding. A bypass is demonstrated by reading the code path, not by driving
+it. (An assessment tool that writes to a user's database has itself failed the
+oversight axis it measures.)
 
 ## Levels
 
@@ -152,6 +179,16 @@ user-level config or user-authored artifacts. (Rationale: an inherited legacy re
 old secret describes the repo's past, not the user's maturity — and a certifiable
 number must not whiplash between repos.) The report shows both: "You: 74 ±3 · This
 project: 61 (capped by S1)."
+
+**S5 has the same split** (`destructive-command guard`): the shell deny-list and any
+self-authored guard (e.g. an MCP SQL validator) are user artifacts — a gap the user
+can fix is a user-level `partial`. But when the destructive *power* comes from the
+environment (a DB login granted `db_owner`/`sa` by a DBA the user cannot overrule),
+that privilege is a project/environment fact: it caps project readiness, while the
+user keeps full credit for having built a guard at all. Report it as "guard present
+but bypassable (your MCP — fixable); underlying DB privilege is environmental
+(escalate to DBA)", and put both layers in Step 0 — fix the validator AND request a
+read-only login.
 
 ## Scorecard persistence
 

@@ -56,6 +56,12 @@ Read `scorecard.json` → `actions[]` with `verified: null`. Verification is TWO
 
 - **mechanism** (deterministic, every run): the artifact is still installed and its
   proof test still blocks/fires when re-run. Set `mechanism: true/false`.
+  **Read-only rule:** re-running a proof test must never itself change state. If a
+  lever guards a destructive channel (SQL writes/DDL, force-push, deletes, `rm -rf`),
+  confirm it by READING the guard's source/config, not by firing the destructive
+  action to see if it is blocked. The plugin issues no state-changing operation
+  against any target to verify anything — a guard proven by exploiting it is a guard
+  the plugin just defeated on the user's real system.
 - **outcome** (statistical, graded strong/weak/none): requires ≥5 friction EVENTS of
   the matching category pre-period, a post-window at least as long as the pre-window,
   and the post rate (per 100 turns) below the **pre-spike baseline** — never below

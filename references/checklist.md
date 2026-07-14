@@ -1,6 +1,6 @@
 # Agentwright Checklist
 
-**Knowledge version: 2 · calibrated for Claude Code 2.1.x** (see
+**Knowledge version: 3 · calibrated for Claude Code 2.1.x** (see
 `calibration.json`). Items added in later knowledge versions must carry a
 `(new in vN)` marker until scored once — the score report treats them as "the bar
 moved", never as user regression (see scoring.md § Evolution contract).
@@ -40,13 +40,18 @@ Cost: `HIGH` = security / built into the harness / irreversible → oversight ex
 | S2 | secret-shaped files are git-ignored (`.env`, keys, certs) — any ignore source counts for the user, committed `.gitignore` for the project (rescoped in v2) | X | HIGH | `repo.env_ignore` (effective, any source) / `repo.gitignore_env_covered` (committed) |
 | S3 | Permissions narrowed: deny-list on destructive commands exists; no `allow: ["*"]`; not living in `bypassPermissions` | X | HIGH | `user.settings` + `project_level.settings`; journal `permission_request` rate shows tuning quality |
 | S4 | MCP tokens via env vars, not plaintext; servers of known origin | X | HIGH | `*.mcp.plaintext_secret_suspect` |
-| S5 | Destructive-command guard (deny rules or PreToolUse hook for `rm -rf`, force-push, `DROP TABLE`) | X | HIGH | settings deny entries / hooks |
+| S5 | Destructive-command guard (deny rules or PreToolUse hook for `rm -rf`, force-push, `DROP TABLE` / SQL writes) — user artifacts cap the user; environmental privilege (e.g. DB `db_owner`) caps the project (rescoped in v3) | X | HIGH | settings deny entries / hooks / self-authored MCP guard source |
 
-**Security gate:** any S item at `absent` with an actual live finding (e.g. real secret
-found) caps the total score at **59** (below the Builder threshold). An S item merely
-`partial` — or `not_assessed` (unverified security cannot be Architect, and better
-probes must never lower a score relative to no probes) — caps at **84** (below the
-Architect threshold). Caps are level boundaries minus one — see scoring.md. Report
+**Security gate:** any *user-controllable* S item at `absent` with an actual live
+finding (e.g. real secret found) caps the total score at **59** (below Builder). A
+*user-controllable, unmitigated* S item at `partial` — or `not_assessed` (unverified
+security cannot be Architect, and better probes must never lower a score relative to
+no probes) — caps at **84** (below Architect). A `partial` whose residual risk is
+environmental, or a guard the user built but which is imperfect, caps the PROJECT
+score only, never the user below Architect (see scoring.md § Security gate: whose
+finding, did they mitigate). **Guards are verified by reading the artifact, never by
+executing an exploit** — the plugin issues no state-changing action to prove a
+finding. Caps are level boundaries minus one — see scoring.md. Report
 the cap explicitly and put fixing it first in the growth plan.
 
 ## A — Context & memory
