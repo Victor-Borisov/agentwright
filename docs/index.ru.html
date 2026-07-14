@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentwright — оценка зрелости харнеса и коуч для Claude Code</title>
+<meta name="description" content="Agentwright измеряет, насколько хорошо вы работаете с Claude Code — ландшафт, суждение, надзор, исход — и коучит вас, превращая реальные трения в правила и хуки.">
+<style>
+  :root {
+    --page:           #f9f9f7;
+    --surface-1:      #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --hairline:       #e1e0d9;
+    --border:         rgba(11,11,11,0.10);
+    --accent:         #2a78d6;
+    --accent-wash:    rgba(42,120,214,0.10);
+    --axis-judgment:  #1baf7a;
+    --axis-oversight: #eda100;
+    --axis-outcome:   #008300;
+    --band-1:         #86b6ef;
+    --band-2:         #2a78d6;
+    --band-3:         #104281;
+    --status-good:    #0ca30c;
+    --status-serious: #ec835a;
+    --status-critical:#d03b3b;
+    --code-bg:        #f0efec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page:           #0d0d0d;
+      --surface-1:      #1a1a19;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --hairline:       #2c2c2a;
+      --border:         rgba(255,255,255,0.10);
+      --accent:         #3987e5;
+      --accent-wash:    rgba(57,135,229,0.14);
+      --axis-judgment:  #199e70;
+      --axis-oversight: #c98500;
+      --axis-outcome:   #008300;
+      --band-1:         #86b6ef;
+      --band-2:         #3987e5;
+      --band-3:         #184f95;
+      --status-good:    #0ca30c;
+      --status-serious: #ec835a;
+      --status-critical:#d03b3b;
+      --code-bg:        #232322;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--page);
+    color: var(--text-primary);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px 96px; }
+
+  nav.top {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--page);
+    border-bottom: 1px solid var(--hairline);
+  }
+  nav.top .row {
+    max-width: 940px; margin: 0 auto; padding: 10px 24px;
+    display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap;
+    font-size: 14px;
+  }
+  nav.top .b { font-weight: 700; margin-right: 4px; }
+  nav.top a { color: var(--text-secondary); }
+  nav.top a:hover { color: var(--accent); text-decoration: none; }
+  nav.top .lang { margin-left: auto; color: var(--text-muted); }
+  nav.top .lang b { color: var(--text-primary); }
+
+  header { padding: 56px 0 36px; }
+  .brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .brand h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
+  .brand .for { color: var(--text-muted); font-size: 15px; }
+  .tagline { margin-top: 14px; font-size: 22px; font-weight: 600; max-width: 34em; }
+  .tagline em { color: var(--accent); font-style: normal; }
+  .sub { margin-top: 12px; color: var(--text-secondary); max-width: 46em; }
+
+  section { margin-top: 64px; scroll-margin-top: 64px; }
+  h2 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+  h3 { font-size: 17px; font-weight: 650; margin-bottom: 8px; }
+  .lede { color: var(--text-secondary); margin-bottom: 22px; max-width: 46em; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; }
+  code, pre { font: 13.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: var(--code-bg); border-radius: 4px; padding: 1px 6px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .hint { color: var(--text-muted); font-size: 13.5px; }
+
+  .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .axis-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; vertical-align: 1px; }
+  .grid4 p { color: var(--text-secondary); font-size: 14.5px; margin-top: 6px; }
+
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; margin: 26px 0 8px; }
+  .flow .node { flex: 1 1 150px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-width: 150px; }
+  .flow .arrow { flex: 0 0 34px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 18px; }
+  .node .k { font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+  .node .t { font-weight: 650; font-size: 14.5px; margin-top: 3px; }
+  .node .d { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+  .node.hooked { border-top: 3px solid var(--accent); }
+
+  .tl-card { padding: 18px 18px 8px; }
+  .tl-wrap { position: relative; }
+  .tl-wrap svg { width: 100%; height: auto; display: block; }
+  .tl-tip {
+    position: absolute; pointer-events: none; display: none; z-index: 20;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    max-width: 260px;
+  }
+  .tl-tip .v { font-weight: 700; font-size: 13.5px; }
+  .tl-tip .l { color: var(--text-secondary); margin-top: 2px; }
+  .tl-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13.5px; color: var(--text-secondary); padding: 10px 4px 8px; }
+  .tl-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .tl-hit { cursor: pointer; outline: none; }
+  .tl-hit:focus circle.mk, .tl-hit:hover circle.mk { stroke-width: 3; }
+  .tl-notes { display: grid; gap: 8px; margin-top: 10px; }
+  .tl-notes .n { display: grid; grid-template-columns: 26px 1fr; gap: 8px; font-size: 14px; color: var(--text-secondary); }
+  .tl-notes .badge {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;
+  }
+
+  .wt-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 20px 0 14px; }
+  .wt-tabs button {
+    font: 600 14px/1 system-ui, sans-serif; color: var(--text-secondary);
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px;
+    padding: 9px 16px; cursor: pointer;
+  }
+  .wt-tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .wt-panel { min-height: 240px; }
+  .wt-panel h3 { margin-bottom: 4px; }
+  .wt-panel .what { color: var(--text-secondary); font-size: 14.5px; margin-bottom: 14px; }
+  .dlg { display: grid; gap: 8px; }
+  .dlg .m { max-width: 44em; border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+  .dlg .coach { background: var(--accent-wash); }
+  .dlg .you { background: var(--code-bg); margin-left: 40px; }
+  .dlg .who { font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+  .wt-nav { display: flex; gap: 10px; margin-top: 14px; }
+  .wt-nav button {
+    font: 600 13.5px/1 system-ui, sans-serif; color: var(--text-primary);
+    background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  }
+  .wt-nav button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .sim { padding: 22px; }
+  .sim-tiles { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; }
+  .tile { flex: 1 1 180px; }
+  .tile .label { font-size: 13.5px; color: var(--text-secondary); }
+  .tile .value { font-size: 44px; font-weight: 650; line-height: 1.15; }
+  .tile .value small { font-size: 20px; color: var(--text-muted); font-weight: 600; }
+  .tile .lvl { font-size: 24px; font-weight: 650; padding-top: 8px; }
+  .gate-banner {
+    display: none; margin-top: 14px; border-left: 3px solid var(--status-critical);
+    background: var(--surface-1); border-radius: 0 8px 8px 0; padding: 10px 14px;
+    font-size: 14px; color: var(--text-secondary);
+    border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+  .gate-banner b { color: var(--status-critical); }
+  .meter-wrap { margin: 20px 0 6px; }
+  .meter svg { width: 100%; height: 64px; display: block; }
+  .band-labels { display: flex; margin-top: 6px; font-size: 13px; color: var(--text-secondary); }
+  .band-labels div { text-align: center; }
+  .band-labels b { color: var(--text-primary); display: block; }
+  .sim-items { margin-top: 20px; display: grid; gap: 10px; }
+  .sim-row {
+    display: grid; grid-template-columns: minmax(180px, 1fr) auto; gap: 10px; align-items: center;
+    border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 14px;
+  }
+  .sim-row .it { font-size: 14px; font-weight: 600; }
+  .sim-row .it small { display: block; font-weight: 400; color: var(--text-muted); font-size: 12.5px; }
+  .seg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg label {
+    font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; cursor: pointer;
+    background: var(--surface-1); user-select: none;
+  }
+  .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .seg input:checked + label { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sim-explain { margin-top: 16px; border-top: 1px solid var(--hairline); padding-top: 12px; font-size: 14px; color: var(--text-secondary); min-height: 44px; }
+  .sim-explain b { color: var(--text-primary); }
+  @media (max-width: 640px) { .sim-row { grid-template-columns: 1fr; } }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin-top: 14px; }
+  th { text-align: left; font-size: 12.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); font-weight: 650; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--hairline); }
+  td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  td:first-child { white-space: nowrap; font-weight: 600; }
+  .muted { color: var(--text-muted); }
+  tr:last-child td { border-bottom: none; }
+  .num-col { font-variant-numeric: tabular-nums; }
+
+  .callout {
+    border-left: 3px solid var(--status-critical); background: var(--surface-1);
+    border-radius: 0 10px 10px 0; padding: 16px 20px; margin-top: 18px;
+    border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+  .callout.good { border-left-color: var(--status-good); }
+  .callout p { color: var(--text-secondary); font-size: 14.5px; }
+
+  .boundary { display: grid; grid-template-columns: 1fr 1fr; margin-top: 22px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .boundary .side { padding: 20px 22px; background: var(--surface-1); }
+  .boundary .side + .side { border-left: 2px dashed var(--hairline); }
+  .boundary ul { list-style: none; padding: 0; margin-top: 12px; display: grid; gap: 9px; }
+  .boundary li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; color: var(--text-secondary); }
+  .boundary li b { color: var(--text-primary); }
+  .mark-ok { color: var(--status-good); font-weight: 700; }
+  .mark-no { color: var(--status-critical); font-weight: 700; }
+  @media (max-width: 640px) {
+    .boundary { grid-template-columns: 1fr; }
+    .boundary .side + .side { border-left: none; border-top: 2px dashed var(--hairline); }
+  }
+
+  .cmd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 22px; }
+  .cmd-grid .card h3 { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15.5px; color: var(--accent); }
+  .cmd-grid p { color: var(--text-secondary); font-size: 14.5px; margin-top: 8px; }
+
+  details { border-bottom: 1px solid var(--hairline); padding: 14px 2px; }
+  details:last-of-type { border-bottom: none; }
+  summary { cursor: pointer; font-weight: 650; font-size: 15.5px; }
+  details p { color: var(--text-secondary); font-size: 14.5px; margin-top: 10px; max-width: 52em; }
+
+  footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--hairline); color: var(--text-muted); font-size: 13.5px; }
+  footer p + p { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="row">
+    <span class="b">Agentwright</span>
+    <a href="#measures">Что измеряется</a>
+    <a href="#day">Один день</a>
+    <a href="#cycle">Цикл коуча</a>
+    <a href="#score">Балл</a>
+    <a href="#commands">Команды</a>
+    <a href="#privacy">Приватность</a>
+    <a href="#faq">FAQ</a>
+    <span class="lang"><a href="index.html">EN</a> · <b>RU</b></span>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <h1>Agentwright</h1>
+    <span class="for">for Claude Code</span>
+  </div>
+  <p class="tagline">Не сожжённые токены — <em>зрелость харнеса</em>.</p>
+  <p class="sub">
+    Agentwright измеряет, насколько хорошо вы <strong>работаете с</strong> Claude Code, а не
+    сколько на него тратите, — и коучит вас: превращает реальные повторяющиеся трения в
+    правила, хуки и гейты, а затем проверяет, что каждый фикс действительно сработал.
+    Всё выполняется локально.
+  </p>
+</header>
+
+<!-- ================= WHAT IT MEASURES ================= -->
+<section id="measures">
+  <h2>Что измеряется</h2>
+  <p class="lede">
+    Механика, которую модель делает за вас, не оценивается. Оцениваются четыре вещи, которые
+    с ростом моделей становятся только <strong>дороже</strong>:
+  </p>
+  <div class="grid4">
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--accent)"></span>Ландшафт</h3>
+      <p>Знаете ли вы, что рычаг <strong>существует</strong> — хуки, гейты, MCP, субагенты, plan mode?</p>
+    </div>
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--axis-judgment)"></span>Суждение</h3>
+      <p>Выбираете ли для реального трения <strong>уместный</strong> рычаг — и обосновываете ли последствиями?</p>
+    </div>
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--axis-oversight)"></span>Надзор</h3>
+      <p>Ловите ли тихие дефекты там, где ошибка <strong>дорогая</strong> — безопасность, харнес, необратимое?</p>
+    </div>
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--axis-outcome)"></span>Исход</h3>
+      <p>Есть ли уместная, работающая, <strong>безопасная</strong> настройка — независимо от того, кто её собрал?</p>
+    </div>
+  </div>
+  <div class="callout good" style="margin-top:18px">
+    <h3>Осознанное «нет» даёт полный балл</h3>
+    <p>
+      Не используете рычаг, но можете объяснить компромисс, который исключает его в вашем
+      контексте? Полный балл с пометкой <strong>осознанный отказ</strong>. Сеньорность — это
+      <em>закрыто осознанно</em>, а не <em>всё подряд установлено</em>.
+      Попробуйте сами в <a href="#score">симуляторе балла</a> ниже.
+    </p>
+  </div>
+</section>
+
+<!-- ================= A DAY ================= -->
+<section id="day">
+  <h2>Один день глазами плагина</h2>
+  <p class="lede">
+    Хуки пишут только минимальные метаданные: вид события, имя инструмента, категорию провала,
+    проект, время. Вот день реалистичной формы — <strong>наведите или перейдите табом на
+    метки</strong>, чтобы увидеть, что именно записывается и что из этого извлекают детекторы.
+  </p>
+
+  <div class="card tl-card">
+    <div class="tl-wrap" id="tlwrap">
+      <svg viewBox="0 0 900 230" aria-label="Таймлайн одного дня с двумя сессиями Claude Code: ходы, всплеск провалов, компакция контекста и перекрытие сессий.">
+        <line x1="60" y1="196" x2="880" y2="196" stroke="var(--hairline)" stroke-width="1"/>
+        <g font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif" text-anchor="middle">
+          <text x="100" y="212">10:00</text><text x="200" y="212">11:00</text>
+          <text x="300" y="212">12:00</text><text x="400" y="212">13:00</text>
+          <text x="500" y="212">14:00</text><text x="600" y="212">15:00</text>
+          <text x="700" y="212">16:00</text><text x="800" y="212">17:00</text>
+        </g>
+        <g font-size="12" fill="var(--text-secondary)" font-family="system-ui, sans-serif">
+          <text x="8" y="64">Сессия A</text>
+          <text x="8" y="150">Сессия B</text>
+          <text x="8" y="79" font-size="10.5" fill="var(--text-muted)">shop-api</text>
+          <text x="8" y="165" font-size="10.5" fill="var(--text-muted)">shop-api</text>
+        </g>
+        <line x1="60" y1="60" x2="880" y2="60" stroke="var(--hairline)" stroke-width="1"/>
+        <line x1="60" y1="146" x2="880" y2="146" stroke="var(--hairline)" stroke-width="1"/>
+        <rect x="95" y="44" width="255" height="32" rx="6" fill="var(--accent-wash)"/>
+        <rect x="595" y="44" width="195" height="32" rx="6" fill="var(--accent-wash)"/>
+        <rect x="645" y="130" width="110" height="32" rx="6" fill="var(--accent-wash)"/>
+        <g font-family="system-ui, sans-serif" font-size="12" font-weight="700">
+          <circle cx="470" cy="60" r="11" fill="var(--accent)"/><text x="470" y="64" text-anchor="middle" fill="#fff">1</text>
+          <circle cx="700" cy="103" r="11" fill="var(--accent)"/><text x="700" y="107" text-anchor="middle" fill="#fff">2</text>
+          <circle cx="278" cy="24" r="11" fill="var(--accent)"/><text x="278" y="28" text-anchor="middle" fill="#fff">3</text>
+        </g>
+        <g id="mks"></g>
+      </svg>
+      <div class="tl-tip" id="tltip" role="status"></div>
+    </div>
+    <div class="tl-legend">
+      <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--accent)"/></svg> ход (промпт)</span>
+      <span><svg width="14" height="14"><path d="M3 3 L11 11 M11 3 L3 11" stroke="var(--status-critical)" stroke-width="2.4"/></svg> провал инструмента</span>
+      <span><svg width="14" height="14"><rect x="2" y="2" width="10" height="10" rx="2" transform="rotate(45 7 7)" fill="var(--axis-oversight)"/></svg> компакция контекста</span>
+      <span><svg width="26" height="14"><rect x="0" y="2" width="26" height="10" rx="4" fill="var(--accent-wash)"/></svg> волна активности</span>
+    </div>
+    <div class="tl-notes">
+      <div class="n"><span class="badge">1</span><span>Две волны с разрывом 2,5 часа и компакцией между ними → коуч спросит: <em>«это было больше одной задачи? Вот раздельные сессии»</em> (возможность O1)</span></div>
+      <div class="n"><span class="badge">2</span><span>Сессия B перекрывает сессию A в <em>том же репозитории</em> → <em>«параллельная работа в одном чекауте — worktree даст каждому потоку свою папку»</em> (O2)</span></div>
+      <div class="n"><span class="badge">3</span><span>Три провала тестов за 12 минут → <em>«после второй неудачной попытки откат дешевле, чем чинить поверх»</em> (O4) — а сама повторяющаяся категория <code>test</code> номинирует хук-гейт на тесты (рецепт L1).</span></div>
+    </div>
+  </div>
+  <p class="hint" style="margin-top:10px">
+    Детекторы номинируют, а не обвиняют — каждое наблюдение становится вопросом, а осознанное
+    «нет» запоминается и не переспрашивается.
+  </p>
+
+  <div class="flow">
+    <div class="node hooked">
+      <div class="k">Весь день · пассивно</div>
+      <div class="t">Хуки дописывают журнал</div>
+      <div class="d">Файлы по дню и сессии. Без анализа.</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node hooked">
+      <div class="k">Следующий день · первый старт</div>
+      <div class="t">Напоминание в одну строку</div>
+      <div class="d">Только если есть неразобранное. Будит — не работает.</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node">
+      <div class="k">По вашей команде</div>
+      <div class="t">/agentwright:coach</div>
+      <div class="d">Разбирает, чинит, архивирует, ставит дневной флаг. Устойчив к прерываниям.</div>
+    </div>
+  </div>
+  <p class="hint">
+    Сбор и разбор привязаны к одному действию — запуску Claude Code, — поэтому не могут
+    разъехаться больше чем на один цикл.
+  </p>
+</section>
+
+<!-- ================= COACH CYCLE ================= -->
+<section id="cycle">
+  <h2>Цикл коучинга — прощёлкайте реальный прогон</h2>
+  <p class="lede">
+    Один прогон <code>/agentwright:coach</code> — один замкнутый цикл над журналом выше.
+    Пройдите его на сквозном примере: <strong>повторяющиеся провалы тестов в
+    <code>shop-api</code></strong>.
+  </p>
+
+  <div class="card">
+    <div class="wt-tabs" role="tablist" id="wtabs">
+      <button role="tab" aria-selected="true" data-i="0">0 · Проверить прошлое</button>
+      <button role="tab" aria-selected="false" data-i="1">1 · Сгруппировать + номинировать</button>
+      <button role="tab" aria-selected="false" data-i="2">2 · Ваше суждение</button>
+      <button role="tab" aria-selected="false" data-i="3">3 · Сравнить</button>
+      <button role="tab" aria-selected="false" data-i="4">4 · Применить безопасно</button>
+      <button role="tab" aria-selected="false" data-i="5">5 · Записать + закрыть</button>
+    </div>
+    <div class="wt-panel" id="wpanel"></div>
+    <div class="wt-nav">
+      <button id="wprev" type="button">← Назад</button>
+      <button id="wnext" type="button">Следующий шаг →</button>
+    </div>
+  </div>
+  <p class="hint" style="margin-top:10px">
+    ⟲ Следующий прогон снова начнётся с шага 0 — каждый фикс в итоге подтверждается эффектом
+    или откатывается. Этой петли не даёт ни один дашборд аналитики.
+  </p>
+</section>
+
+<!-- ================= SCORE + SIMULATOR ================= -->
+<section id="score">
+  <h2>Agentwright Score — попробуйте формулу</h2>
+  <p class="lede">
+    <code>/agentwright:score</code> сканирует артефакты, проходит чек-лист из 24 пунктов,
+    задаёт короткий ситуативный диалог и выдаёт число от 1 до 100. Ниже — настоящая формула
+    на <strong>7 из 24 пунктов</strong> (репрезентативная выборка из секций, проверяемых по
+    артефактам — полная карта под симулятором): <strong>щёлкайте статусы</strong> и смотрите,
+    что происходит. Те же факты + те же ответы → тот же балл.
+  </p>
+
+  <div class="card sim">
+    <div class="sim-tiles">
+      <div class="tile">
+        <div class="label">Agentwright Score</div>
+        <div class="value"><span id="scoreN">70</span><small> /100</small></div>
+      </div>
+      <div class="tile">
+        <div class="label">Уровень</div>
+        <div class="lvl" id="levelN">Agent Builder</div>
+      </div>
+    </div>
+    <div class="gate-banner" id="gateB"></div>
+
+    <div class="meter-wrap">
+      <div class="meter">
+        <svg viewBox="0 0 900 64" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="0"   y="26" width="529" height="18" rx="4" fill="var(--band-1)"/>
+          <rect x="533" y="26" width="220" height="18" rx="4" fill="var(--band-2)"/>
+          <rect x="757" y="26" width="143" height="18" rx="4" fill="var(--band-3)"/>
+          <line id="mline" x1="630" y1="14" x2="630" y2="56" stroke="var(--text-primary)" stroke-width="2"/>
+          <text id="mtext" x="630" y="9" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-primary)" font-family="system-ui, sans-serif">70</text>
+          <text x="2" y="60" font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif">1</text>
+          <text x="533" y="60" font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif" text-anchor="middle">60</text>
+          <text x="757" y="60" font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif" text-anchor="middle">85</text>
+          <text x="898" y="60" font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif" text-anchor="end">100</text>
+        </svg>
+      </div>
+      <div class="band-labels">
+        <div style="flex: 0 0 59%"><b>Agent Apprentice</b>1–59</div>
+        <div style="flex: 0 0 25%"><b>Agent Builder</b>60–84</div>
+        <div style="flex: 0 0 16%"><b>Agent Architect</b>85–100</div>
+      </div>
+    </div>
+
+    <div class="sim-items" id="simItems"></div>
+    <div class="sim-explain" id="simExplain">
+      Щёлкните любой статус. <b>осознанный отказ</b> = вы называете компромисс рычага и почему
+      он не подходит вашему контексту — стоит столько же, сколько наличие.
+    </div>
+  </div>
+
+  <h3 style="margin-top:34px">Полный чек-лист — что значат буквы</h3>
+  <p class="lede" style="margin-bottom:0">
+    Буквы — это секции чек-листа. Реальный прогон балла проходит все 24 пункта; симулятор
+    показывает 7 из них (секции C, E, F не показаны — C/E оцениваются диалогом, F нужна
+    история прогонов). Полные определения: <code>references/checklist.md</code>.
+  </p>
+  <table>
+    <thead><tr><th>Секция</th><th>Пункты</th><th>Что покрывает</th></tr></thead>
+    <tbody>
+      <tr><td>S · Безопасность</td><td class="num-col">S1–S5</td><td>Секреты, права, MCP-токены, страж разрушительных команд — вес 2.0, питает гейт</td></tr>
+      <tr><td>A · Контекст и память</td><td class="num-col">A1–A3</td><td>Проектный и пользовательский CLAUDE.md, уроки в постоянных артефактах</td></tr>
+      <tr><td>B · Гарантии и петли</td><td class="num-col">B1–B3</td><td>Рабочие хуки, автоматическая петля тестов/линта, блокирующий CI-гейт</td></tr>
+      <tr><td>C · Примитивы делегирования</td><td class="num-col">C1–C3</td><td>Свои скиллы/команды, субагенты, MCP там, где проекту нужно</td></tr>
+      <tr><td>D · Суждение и ландшафт</td><td class="num-col">D1–D6</td><td>Диалоговые: выбор рычага на реальном трении, plan mode, дисциплина контекста, модель под задачу, параллельность</td></tr>
+      <tr><td>E · Надзор</td><td class="num-col">E1–E2</td><td>Ревью в дорогих точках; прополка правил и хуков с ложными срабатываниями</td></tr>
+      <tr><td>F · Эффект</td><td class="num-col">F1–F2</td><td>Подтверждённое снижение трения между прогонами — вес 2.0, со 2-го прогона</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:30px">Правила, по которым вы только что щёлкали</h3>
+  <table>
+    <thead><tr><th>Статус</th><th>Значение</th><th class="num-col">Кредит</th></tr></thead>
+    <tbody>
+      <tr><td>present</td><td>Существует <em>и используется</em> (доказательство из скана)</td><td class="num-col">1.0</td></tr>
+      <tr><td>осознанный отказ</td><td>Отсутствует, но вы называете рычаг, его компромисс и конкретную причину</td><td class="num-col">1.0</td></tr>
+      <tr><td>partial</td><td>Есть, но слабое — общий CLAUDE.md, allow-список без deny-списка</td><td class="num-col">0.5</td></tr>
+      <tr><td>absent</td><td>Отсутствует, и рычага не было на вашей карте — уходит в план роста</td><td class="num-col">0.0</td></tr>
+      <tr><td>not assessed</td><td>Проверка невозможна — исключается из знаменателя</td><td class="num-col muted">исключается</td></tr>
+    </tbody>
+  </table>
+  <pre style="margin-top:14px"><code>score = round( 100 × Σ(credit × weight) / Σ(weight) )   ·   веса: безопасность и эффект 2.0, ДОРОГИЕ 1.5, дешёвые 1.0
+затем гейт безопасности: живая дыра → потолок 59 (ниже Builder) · частичная безопасность → потолок 84 (ниже Architect)</code></pre>
+
+  <h3 style="margin-top:30px">Правила против накрутки</h3>
+  <table>
+    <tbody>
+      <tr><td>Свежие артефакты</td><td>Пустой скилл, созданный за минуты до оценки, — максимум <em>partial</em>; для полного кредита нужны следы использования.</td></tr>
+      <tr><td>Планка отказа</td><td>«Мне это не нужно» без «почему» = absent. Отказ должен показывать, что вы знаете, что рычаг гарантирует и чего стоит.</td></tr>
+      <tr><td>Балл может падать</td><td>Несработавший рычаг, растущее трение, регресс прав — число снижается, причина называется.</td></tr>
+      <tr><td>Без округления из милости</td><td>84.4 — это 84. Границы уровней никогда не округляются.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================= COMMANDS ================= -->
+<section id="commands">
+  <h2>Команды</h2>
+  <div class="cmd-grid">
+    <div class="card">
+      <h3>/agentwright:score</h3>
+      <p>Детерминированный скан → чек-лист → короткий ситуативный диалог → взвешенный балл с
+      гейтом безопасности → постоянный scorecard. В конце — до трёх направлений роста:
+      только реальные пробелы, без добивки до трёх; каждое привязано к практической задаче
+      в вашем репозитории (и к бесплатному модулю Anthropic Academy, когда подходящий
+      существует).</p>
+    </div>
+    <div class="card">
+      <h3>/agentwright:coach</h3>
+      <p>Замкнутый цикл, который вы прощёлкали выше: проверить прошлые фиксы (частоты на
+      100 ходов активности), сгруппировать трения, выдвинуть возможности, сначала ваше суждение,
+      безопасное применение из проверенной библиотеки рычагов, запись. Срабатывает и на
+      жалобу о повторяющемся трении.</p>
+    </div>
+    <div class="card">
+      <h3>/agentwright:log</h3>
+      <p>Заметка о трении в одну строку в сам момент раздражения: «опять три попытки». Ни один
+      хук не увидит, что взбесило именно <em>вас</em>, — ручные заметки дают самый сильный
+      сигнал и цитируются дословно при группировке.</p>
+    </div>
+    <div class="card">
+      <h3>/agentwright:show</h3>
+      <p>Мгновенный показ сохранённого балла без пересчёта — удобно при шеринге экрана:
+      балл, оси, строки по проектам, тренд. Каждый прогон score опечатывает карточку;
+      scorecard, отредактированный вручную, не показывается вовсе. Самооценка — и карточка
+      сама об этом говорит.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PRIVACY ================= -->
+<section id="privacy">
+  <h2>Граница приватности</h2>
+  <p class="lede">
+    Всё локально; никуда ничего не передаётся. Граница архитектурная: запретная сторона не
+    «не используется» — в коде нет пути, который её читает (согласно
+    <a href="https://support.claude.com/en/articles/13145358-anthropic-software-directory-policy">Anthropic Software Directory Policy</a>, §1.D/§1.F).
+  </p>
+  <div class="boundary">
+    <div class="side">
+      <h3><span class="mark-ok">✓</span> Читает</h3>
+      <ul>
+        <li><span class="mark-ok">✓</span><span><b>Собственный журнал</b> — вид события, имя инструмента, категория провала, имя проекта, время, плюс ваши заметки</span></li>
+        <li><span class="mark-ok">✓</span><span><b>Ваши конфигурационные артефакты</b> — settings.json, CLAUDE.md, хуки, скиллы, агенты, .mcp.json</span></li>
+        <li><span class="mark-ok">✓</span><span><b>Состояние репозитория</b> — покрытие .gitignore, CI (GitHub или GitLab), pre-commit, скан секретов; workspace-корень с несколькими репозиториями сканируется по каждому репо, личные не-гит папки не трогаются</span></li>
+        <li><span class="mark-ok">✓</span><span><b>Собственный scorecard</b> — история балла и записанные действия</span></li>
+      </ul>
+    </div>
+    <div class="side">
+      <h3><span class="mark-no">✕</span> Никогда не трогает</h3>
+      <ul>
+        <li><span class="mark-no">✕</span><span><b>Транскрипты переписки</b> — <code>~/.claude/projects/</code></span></li>
+        <li><span class="mark-no">✕</span><span><b>Данные аналитики</b> — <code>~/.claude/usage-data/</code>, отчёты insights, сводки сессий</span></li>
+        <li><span class="mark-no">✕</span><span><b>Промпты, входы/выходы инструментов, тексты ошибок</b> — даже для логирования</span></li>
+        <li><span class="mark-no">✕</span><span><b>Сеть</b> — никакой телеметрии; удалите <code>~/.claude/agentwright/</code> — и всё стёрто</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= INSTALL ================= -->
+<section id="install">
+  <h2>Установка и быстрый старт</h2>
+  <p class="lede">Требования: Claude Code, <code>bash</code>, <code>python3</code>.
+  Опционально: <code>git</code> и <code>gitleaks</code> усиливают проверки.</p>
+  <pre><code># разработка / локальное использование — активен только в сессиях, запущенных так
+claude --plugin-dir /path/to/agentwright
+
+# или установка из marketplace
+/plugin marketplace add Victor-Borisov/agentwright
+/plugin install agentwright@agentwright</code></pre>
+  <p class="lede" style="margin-top:14px">
+    Затем выполните <code>/agentwright:score</code> для базовой отметки. Хуки начинают вести
+    журнал с этого момента; дайте коучу день-два реальной работы перед первым
+    <code>/agentwright:coach</code>.
+  </p>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section id="faq">
+  <h2>Вопросы и ответы</h2>
+  <details>
+    <summary>Он заменит или сломает мою текущую статусную строку?</summary>
+    <p>Нет. Плагины в Claude Code не могут устанавливать статусные строки — statusline
+    настраивается только в вашем собственном <code>settings.json</code>, который Agentwright
+    никогда не изменяет. <code>scripts/statusline-example.sh</code> — необязательный пример:
+    хотите балл в существующей строке — допишите несколько строк в свой текущий скрипт.</p>
+  </details>
+  <details>
+    <summary>Он отправляет мой балл или данные куда-либо?</summary>
+    <p>Нет. Всё локально. Плагин не делает сетевых запросов и ничего никуда не выгружает.
+    Это можно проверить: вся кодовая база — несколько коротких скриптов.</p>
+  </details>
+  <details>
+    <summary>Я не использую worktrees / MCP / plan mode. Балл пострадает?</summary>
+    <p>Нет, если это выбор. Объясните компромисс — и пункт зачтётся полностью как осознанный
+    отказ; попробуйте в симуляторе выше. Балл наказывает только за рычаги, которых вообще нет
+    на вашей карте, — и тут же даёт адресный способ выучить каждый.</p>
+  </details>
+  <details>
+    <summary>Почему мой балл снизился?</summary>
+    <p>Три возможные причины: регресс безопасности (потолок гейта), прошлый фикс доказуемо не
+    сработал (шаг 0), или трение растёт при стоящей на месте настройке. Отчёт всегда называет
+    причину. Падающее число, которое вы можете объяснить, лучше льстивого, которое не можете.</p>
+  </details>
+  <details>
+    <summary>Почему он не анализирует мою переписку, чтобы коучить лучше?</summary>
+    <p>Две причины. Политика: ПО из директории не должно читать историю чатов Claude и сводки
+    переписки. Метод: поведение, видимое в артефактах и исходах (упало ли трение?), проверяемо;
+    оценка вашей прозы — гадание. Agentwright оценивает то, что можно доказать.</p>
+  </details>
+  <details>
+    <summary>Где мои данные и как всё сбросить?</summary>
+    <p>Всё лежит в <code>~/.claude/agentwright/</code> — журнал, флаги, scorecard, архив,
+    конфиг (язык общения — спрашивается один раз при первом score или coach).
+    Удалите эту папку — и Agentwright начнёт с нуля.</p>
+  </details>
+</section>
+
+<footer>
+  <p><strong>Agentwright</strong> · Лицензия MIT · уровни: Agent Apprentice → Agent Builder → Agent Architect</p>
+  <p>Agentwright — независимый инструмент для Claude Code. Не аффилирован с Anthropic, не
+  спонсируется и не одобрен ею. Claude — товарный знак Anthropic, PBC.</p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ timeline ============ */
+  var X0 = 100, PXH = 100;
+  function tx(h, m) { return X0 + (h - 10) * PXH + (m / 60) * PXH; }
+  var events = [];
+  [[10,0],[10,20],[10,40],[11,10],[11,35],[15,0],[15,25],[15,50],[16,20],[16,50]].forEach(function (t) {
+    events.push({ lane: 60, h: t[0], m: t[1], kind: "turn", tip: '{"event":"turn","project":"shop-api"}' });
+  });
+  [[15,30],[16,0],[16,30]].forEach(function (t) {
+    events.push({ lane: 146, h: t[0], m: t[1], kind: "turn", tip: '{"event":"turn","project":"shop-api"}' });
+  });
+  [[11,40],[11,46],[11,52]].forEach(function (t) {
+    events.push({ lane: 60, h: t[0], m: t[1], kind: "fail", tip: '{"event":"tool_failure","tool":"Bash","category":"test","project":"shop-api"}' });
+  });
+  events.push({ lane: 60, h: 12, m: 20, kind: "compact", tip: '{"event":"compact","project":"shop-api"}' });
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  var g = document.getElementById("mks");
+  var tip = document.getElementById("tltip");
+  var wrap = document.getElementById("tlwrap");
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  events.forEach(function (e) {
+    var x = tx(e.h, e.m), y = e.lane;
+    var hit = document.createElementNS(svgNS, "g");
+    hit.setAttribute("class", "tl-hit");
+    hit.setAttribute("tabindex", "0");
+    hit.setAttribute("role", "img");
+
+    var mark;
+    if (e.kind === "turn") {
+      mark = document.createElementNS(svgNS, "circle");
+      mark.setAttribute("class", "mk");
+      mark.setAttribute("cx", x); mark.setAttribute("cy", y); mark.setAttribute("r", 5);
+      mark.setAttribute("fill", "var(--accent)");
+      mark.setAttribute("stroke", "var(--surface-1)"); mark.setAttribute("stroke-width", "2");
+    } else if (e.kind === "fail") {
+      mark = document.createElementNS(svgNS, "path");
+      mark.setAttribute("d", "M" + (x-5) + " " + (y-5) + " L" + (x+5) + " " + (y+5) +
+                             " M" + (x+5) + " " + (y-5) + " L" + (x-5) + " " + (y+5));
+      mark.setAttribute("stroke", "var(--status-critical)");
+      mark.setAttribute("stroke-width", "2.6");
+      mark.setAttribute("fill", "none");
+    } else {
+      mark = document.createElementNS(svgNS, "rect");
+      mark.setAttribute("x", x - 5); mark.setAttribute("y", y - 5);
+      mark.setAttribute("width", 10); mark.setAttribute("height", 10);
+      mark.setAttribute("rx", 2);
+      mark.setAttribute("transform", "rotate(45 " + x + " " + y + ")");
+      mark.setAttribute("fill", "var(--axis-oversight)");
+    }
+
+    var hitArea = document.createElementNS(svgNS, "circle");
+    hitArea.setAttribute("cx", x); hitArea.setAttribute("cy", y); hitArea.setAttribute("r", 13);
+    hitArea.setAttribute("fill", "transparent");
+
+    var label = { turn: "ход", fail: "провал инструмента (test)", compact: "компакция контекста" }[e.kind];
+    hit.setAttribute("aria-label", label + " в " + pad(e.h) + ":" + pad(e.m));
+
+    hit.appendChild(hitArea);
+    hit.appendChild(mark);
+    g.appendChild(hit);
+
+    function show() {
+      while (tip.firstChild) tip.removeChild(tip.firstChild);
+      var v = document.createElement("div"); v.className = "v";
+      v.textContent = pad(e.h) + ":" + pad(e.m) + " — " + label;
+      var l = document.createElement("div"); l.className = "l";
+      l.textContent = e.tip;
+      tip.appendChild(v); tip.appendChild(l);
+      tip.style.display = "block";
+      var box = wrap.getBoundingClientRect();
+      var svg = wrap.querySelector("svg").getBoundingClientRect();
+      var px = svg.left - box.left + (x / 900) * svg.width;
+      var py = svg.top - box.top + (y / 230) * svg.height;
+      tip.style.left = Math.min(px + 14, box.width - 270) + "px";
+      tip.style.top = Math.max(py - 60, 0) + "px";
+    }
+    function hide() { tip.style.display = "none"; }
+    hit.addEventListener("pointerenter", show);
+    hit.addEventListener("pointerleave", hide);
+    hit.addEventListener("focus", show);
+    hit.addEventListener("blur", hide);
+  });
+
+  /* ============ walkthrough ============ */
+  var steps = [
+    { t: "Сначала проверить прошлые рычаги",
+      w: "Доверие строится на проверке себя до новых советов. Каждый прошлый фикс сверяется с журналом — частоты на 100 ходов активности, а не сырые количества.",
+      d: [["coach", "В прошлый раз я донастроил ваши permissions (рычаг L4). Механизм: deny-список на месте. Эффект: запросы разрешений 8.1 → 2.3 на 100 ходов. Помечаю как подтверждённый ✓ — это эффект, а не мнение."]] },
+    { t: "Сгруппировать трения — и выдвинуть возможности",
+      w: "Симптомы группируются по корню; формы сессий сверяются с матрицей возможностей (это таймлайн выше).",
+      d: [["coach", "Одна группа трений: 9 провалов тестов в 4 сессиях в shop-api — общий корень: нет автоматической петли проверки."],
+          ["coach", "И одна номинация: вчерашняя 7-часовая сессия шла в две волны с компакцией между ними. Это было больше одной задачи?"],
+          ["you", "Да — переключился на хотфикс и вернулся после обеда."],
+          ["coach", "Тогда есть рычаг, который вы не использовали: сессия на задачу. /clear между задачами или новая сессия — старая остаётся доступной через --resume. Цена: одна привычка. Попробуете на этой неделе?"]] },
+    { t: "Ваше суждение — до того, как коуч покажет своё",
+      w: "Момент тренировки суждения. Не пропускается и не подсказывается.",
+      d: [["coach", "Группа с провалами тестов: чем бы вы воспользовались — правило в CLAUDE.md, хук, CI-гейт, ничего? Почему?"],
+          ["you", "Правилом в CLAUDE.md? «Всегда запускай тесты после правок»."]] },
+    { t: "Сравнить и подсветить расхождение",
+      w: "Коуч обосновывает последствиями — лестница гарантий: правило = пожелание · хук = гарантия ценой задержки · CI = жёсткий стоп ценой длины цикла.",
+      d: [["coach", "Правило — пожелание: агент иногда его пропустит, а ваши провалы повторяются в пределах минут, значит нужна гарантия — PostToolUse-хук, гоняющий быстрый набор тестов после каждой правки (рецепт L1). Быстрый набор у вас идёт ~25 секунд — задержка приемлема. Шли бы тесты 20 минут — я бы сказал CI-гейт. В этом весь компромисс."]] },
+    { t: "Применить согласованный фикс — безопасно",
+      w: "Церемонию определяет цена. ДОРОГИЕ артефакты (хуки, permissions, CI) получают proof-тест + ваше ревью; дешёвые применяются без церемоний.",
+      d: [["coach", "Вот хук. Proof-тест: я сломал тривиальный assert, отредактировал файл — хук сообщил о провале (ненулевой код выхода). Вернул обратно. Посмотрите 6 строк?"],
+          ["you", "Выглядит верно — применяй."],
+          ["coach", "Применил отдельным коммитом (откат = одна команда). Записал в scorecard: ожидаемый эффект — частота tool_failure/test на 100 ходов в shop-api падает."]] },
+    { t: "Записать и закрыть день",
+      w: "Файлы журнала архивируются, ставится дневной флаг, а пробел ландшафта из шага 2 получает ровно одну адресную учебную ссылку.",
+      d: [["coach", "Готово: 1 трение пролечено, 1 возможность показана, 1 прошлый фикс подтверждён. На шаге 2 вы выбрали правило там, где нужна была гарантия — модуль про хуки в курсе Claude Code от Anthropic Academy закрывает ровно это; практическое задание уже в вашем репозитории: посмотрите завтра, как новый хук поймает первый провал."]] }
+  ];
+
+  var tabs = document.getElementById("wtabs").querySelectorAll("button");
+  var panel = document.getElementById("wpanel");
+  var cur = 0;
+
+  function render(i) {
+    cur = i;
+    for (var k = 0; k < tabs.length; k++) tabs[k].setAttribute("aria-selected", k === i ? "true" : "false");
+    while (panel.firstChild) panel.removeChild(panel.firstChild);
+    var h = document.createElement("h3"); h.textContent = "Шаг " + i + " — " + steps[i].t;
+    var w = document.createElement("p"); w.className = "what"; w.textContent = steps[i].w;
+    var dlg = document.createElement("div"); dlg.className = "dlg";
+    steps[i].d.forEach(function (m) {
+      var box = document.createElement("div"); box.className = "m " + (m[0] === "coach" ? "coach" : "you");
+      var who = document.createElement("div"); who.className = "who";
+      who.textContent = m[0] === "coach" ? "Коуч" : "Вы";
+      var txt = document.createElement("div"); txt.textContent = m[1];
+      box.appendChild(who); box.appendChild(txt); dlg.appendChild(box);
+    });
+    panel.appendChild(h); panel.appendChild(w); panel.appendChild(dlg);
+  }
+  for (var k = 0; k < tabs.length; k++) {
+    (function (idx) { tabs[idx].addEventListener("click", function () { render(idx); }); })(k);
+  }
+  document.getElementById("wprev").addEventListener("click", function () { render((cur + steps.length - 1) % steps.length); });
+  document.getElementById("wnext").addEventListener("click", function () { render((cur + 1) % steps.length); });
+  render(0);
+
+  /* ============ score simulator ============ */
+  var P = "present", R = "осознанный отказ", H = "partial", A = "absent";
+  var items = [
+    { id: "S1", name: "Нет секретов в репозитории и истории git", note: "безопасность · вес 2.0", w: 2, sec: true, opts: [P, H, A], init: P,
+      exp: { present: "Скан секретов не нашёл — полный кредит.", partial: "Только скан по паттернам (gitleaks недоступен) — непроверенная безопасность даёт потолок 84: крепкий Builder, но не Architect.", absent: "Живой секрет. Что бы вы ни построили, гейт держит вас ниже Builder." } },
+    { id: "S3", name: "Права сужены (deny-список, без allow-*)", note: "безопасность · вес 2.0", w: 2, sec: true, opts: [P, H, A], init: P,
+      exp: { present: "Deny-список на разрушительное, разумный режим — полный кредит.", partial: "Allow-список без deny-списка — гейт ставит потолок 84.", absent: "bypassPermissions по умолчанию = живая дыра. Потолок 59." } },
+    { id: "B2", name: "Автоматическая петля тестов/линта (хук или pre-commit)", note: "ДОРОГОЙ · вес 1.5", w: 1.5, opts: [P, R, H, A], init: A,
+      exp: { present: "Агент видит провалы сразу и чинит их без напоминаний.", "осознанный отказ": "«Набор идёт 20 минут, гейт у меня в CI» — компромисс назван, полный кредит.", partial: "Хук есть, но не умеет проваливаться (exit 0) — декорация, половина кредита.", absent: "Провалы повторяются, и никто их не ловит — это направление роста №1." } },
+    { id: "B3", name: "Блокирующий CI-гейт", note: "ДОРОГОЙ · вес 1.5", w: 1.5, opts: [P, R, A], init: P,
+      exp: { present: "Красная проверка блокирует мерж — жёсткий стоп.", "осознанный отказ": "«Соло-прототип, мержей нет» — обоснованно, полный кредит.", absent: "Поломки доходят до общей ветки без преград." } },
+    { id: "A1", name: "Содержательный проектный CLAUDE.md", note: "дешёвый · вес 1.0", w: 1, opts: [P, H, A], init: H,
+      exp: { present: "Конкретные проверяемые конвенции, которым агент реально следует.", partial: "Существует, но общий («пиши чистый код») — половина кредита.", absent: "Агент заново изучает ваш проект каждую сессию." } },
+    { id: "D2", name: "Plan mode для нетривиальных задач", note: "дешёвый · вес 1.0", w: 1, opts: [P, R, A], init: R,
+      exp: { present: "Неверные подходы умирают на плане, до кода.", "осознанный отказ": "«Мои задачи — мелкие однофайловые правки» — аргументировано, полный кредит.", absent: "Рычага не было на вашей карте — один вопрос это бы изменил." } },
+    { id: "D6", name: "Параллельность: worktrees / фоновые агенты", note: "дешёвый · вес 1.0", w: 1, opts: [P, R, A], init: A,
+      exp: { present: "Параллельные потоки без коллизий.", "осознанный отказ": "«Работаю в один поток» — нормально, полный кредит.", absent: "Помните перекрытие ② на таймлайне выше? Это тот самый рычаг." } }
+  ];
+  var credit = {}; credit[P] = 1; credit[R] = 1; credit[H] = 0.5; credit[A] = 0;
+
+  var itemsBox = document.getElementById("simItems");
+  var explain = document.getElementById("simExplain");
+  var state = {};
+
+  items.forEach(function (it) {
+    state[it.id] = it.init;
+    var row = document.createElement("div"); row.className = "sim-row";
+    var left = document.createElement("div"); left.className = "it";
+    left.textContent = it.id + " · " + it.name;
+    var small = document.createElement("small"); small.textContent = it.note;
+    left.appendChild(small);
+    var seg = document.createElement("div"); seg.className = "seg";
+    it.opts.forEach(function (o, oi) {
+      var inp = document.createElement("input");
+      inp.type = "radio"; inp.name = "sim-" + it.id; inp.id = "sim-" + it.id + "-" + oi;
+      inp.checked = (o === it.init);
+      var lab = document.createElement("label");
+      lab.setAttribute("for", inp.id);
+      lab.textContent = (it.sec && o === A) ? "absent (живая дыра)" : o;
+      inp.addEventListener("change", function () { state[it.id] = o; update(it, o); });
+      seg.appendChild(inp); seg.appendChild(lab);
+    });
+    row.appendChild(left); row.appendChild(seg);
+    itemsBox.appendChild(row);
+  });
+
+  var scoreN = document.getElementById("scoreN");
+  var levelN = document.getElementById("levelN");
+  var gateB = document.getElementById("gateB");
+  var mline = document.getElementById("mline");
+  var mtext = document.getElementById("mtext");
+
+  function update(lastItem, lastStatus) {
+    var num = 0, den = 0, capItem = null, cap = 101;
+    items.forEach(function (it) {
+      var s = state[it.id];
+      num += credit[s] * it.w; den += it.w;
+      if (it.sec && s === A && cap > 59) { cap = 59; capItem = it.id; }
+      if (it.sec && s === H && cap > 84) { cap = 84; if (!capItem) capItem = it.id; }
+    });
+    var raw = Math.round(100 * num / den);
+    var score = Math.min(raw, cap);
+    scoreN.textContent = String(score);
+    levelN.textContent = score >= 85 ? "Agent Architect" : score >= 60 ? "Agent Builder" : "Agent Apprentice";
+    if (raw > cap) {
+      gateB.style.display = "block";
+      while (gateB.firstChild) gateB.removeChild(gateB.firstChild);
+      var b = document.createElement("b");
+      b.textContent = "Гейт безопасности: ";
+      gateB.appendChild(b);
+      gateB.appendChild(document.createTextNode(
+        "формула даёт " + raw + ", потолок " + cap + " из-за " + capItem +
+        (cap === 59 ? " — с живой дырой нельзя быть даже Builder." : " — с недожатой безопасностью нет титула Architect.")));
+    } else {
+      gateB.style.display = "none";
+    }
+    var x = Math.max(8, Math.min(892, score * 9));
+    mline.setAttribute("x1", x); mline.setAttribute("x2", x);
+    mtext.setAttribute("x", x); mtext.textContent = String(score);
+    if (lastItem) {
+      while (explain.firstChild) explain.removeChild(explain.firstChild);
+      var bb = document.createElement("b");
+      bb.textContent = lastItem.id + " → " + lastStatus + " (кредит " + credit[lastStatus] + " × вес " + lastItem.w + "): ";
+      explain.appendChild(bb);
+      explain.appendChild(document.createTextNode(lastItem.exp[lastStatus] || ""));
+    }
+  }
+  update(null, null);
+})();
+</script>
+</body>
+</html>

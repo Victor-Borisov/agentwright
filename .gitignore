@@ -1,0 +1,6 @@
+# Conversation transcripts and working notes — never publish
+CC*.txt
+
+__pycache__/
+*.pyc
+.DS_Store

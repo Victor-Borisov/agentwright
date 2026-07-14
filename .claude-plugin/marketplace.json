@@ -1,0 +1,16 @@
+{
+  "name": "agentwright",
+  "description": "Agentwright — harness maturity score & coach for Claude Code.",
+  "owner": {
+    "name": "Viktor Borisov",
+    "email": "victorborisov0@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "agentwright",
+      "source": "./",
+      "description": "Harness maturity score & coach for Claude Code. Turns your real friction into rules and hooks, measures what stays valuable as models improve (landscape, judgment, oversight), and grows your Agentwright Score toward the Agent Architect level. Collects signals only via its own hooks and repo artifacts — never reads chat history or transcripts.",
+      "version": "0.6.0"
+    }
+  ]
+}

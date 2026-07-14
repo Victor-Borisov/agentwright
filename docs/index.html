@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentwright — Harness Maturity Score &amp; Coach for Claude Code</title>
+<meta name="description" content="Agentwright measures how well you work with Claude Code — landscape, judgment, oversight, outcome — and coaches you by turning your real friction into rules and hooks.">
+<style>
+  :root {
+    --page:           #f9f9f7;
+    --surface-1:      #fcfcfb;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --hairline:       #e1e0d9;
+    --border:         rgba(11,11,11,0.10);
+    --accent:         #2a78d6;
+    --accent-wash:    rgba(42,120,214,0.10);
+    --axis-judgment:  #1baf7a;
+    --axis-oversight: #eda100;
+    --axis-outcome:   #008300;
+    --band-1:         #86b6ef;
+    --band-2:         #2a78d6;
+    --band-3:         #104281;
+    --status-good:    #0ca30c;
+    --status-serious: #ec835a;
+    --status-critical:#d03b3b;
+    --code-bg:        #f0efec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page:           #0d0d0d;
+      --surface-1:      #1a1a19;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --hairline:       #2c2c2a;
+      --border:         rgba(255,255,255,0.10);
+      --accent:         #3987e5;
+      --accent-wash:    rgba(57,135,229,0.14);
+      --axis-judgment:  #199e70;
+      --axis-oversight: #c98500;
+      --axis-outcome:   #008300;
+      --band-1:         #86b6ef;
+      --band-2:         #3987e5;
+      --band-3:         #184f95;
+      --status-good:    #0ca30c;
+      --status-serious: #ec835a;
+      --status-critical:#d03b3b;
+      --code-bg:        #232322;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--page);
+    color: var(--text-primary);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---------- sticky nav ---------- */
+  nav.top {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--page);
+    border-bottom: 1px solid var(--hairline);
+  }
+  nav.top .row {
+    max-width: 940px; margin: 0 auto; padding: 10px 24px;
+    display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap;
+    font-size: 14px;
+  }
+  nav.top .b { font-weight: 700; margin-right: 4px; }
+  nav.top a { color: var(--text-secondary); }
+  nav.top a:hover { color: var(--accent); text-decoration: none; }
+  nav.top .lang { margin-left: auto; color: var(--text-muted); }
+  nav.top .lang b { color: var(--text-primary); }
+
+  /* ---------- header ---------- */
+  header { padding: 56px 0 36px; }
+  .brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .brand h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
+  .brand .for { color: var(--text-muted); font-size: 15px; }
+  .tagline { margin-top: 14px; font-size: 22px; font-weight: 600; max-width: 34em; }
+  .tagline em { color: var(--accent); font-style: normal; }
+  .sub { margin-top: 12px; color: var(--text-secondary); max-width: 46em; }
+
+  /* ---------- generic ---------- */
+  section { margin-top: 64px; scroll-margin-top: 64px; }
+  h2 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+  h3 { font-size: 17px; font-weight: 650; margin-bottom: 8px; }
+  .lede { color: var(--text-secondary); margin-bottom: 22px; max-width: 46em; }
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; }
+  code, pre { font: 13.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { background: var(--code-bg); border-radius: 4px; padding: 1px 6px; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .hint { color: var(--text-muted); font-size: 13.5px; }
+
+  /* ---------- axes grid ---------- */
+  .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+  .axis-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; vertical-align: 1px; }
+  .grid4 p { color: var(--text-secondary); font-size: 14.5px; margin-top: 6px; }
+
+  /* ---------- flow diagram ---------- */
+  .flow { display: flex; flex-wrap: wrap; align-items: stretch; margin: 26px 0 8px; }
+  .flow .node { flex: 1 1 150px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; min-width: 150px; }
+  .flow .arrow { flex: 0 0 34px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 18px; }
+  .node .k { font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+  .node .t { font-weight: 650; font-size: 14.5px; margin-top: 3px; }
+  .node .d { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+  .node.hooked { border-top: 3px solid var(--accent); }
+
+  /* ---------- timeline ---------- */
+  .tl-card { padding: 18px 18px 8px; }
+  .tl-wrap { position: relative; }
+  .tl-wrap svg { width: 100%; height: auto; display: block; }
+  .tl-tip {
+    position: absolute; pointer-events: none; display: none; z-index: 20;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    max-width: 260px;
+  }
+  .tl-tip .v { font-weight: 700; font-size: 13.5px; }
+  .tl-tip .l { color: var(--text-secondary); margin-top: 2px; }
+  .tl-legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13.5px; color: var(--text-secondary); padding: 10px 4px 8px; }
+  .tl-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .tl-hit { cursor: pointer; outline: none; }
+  .tl-hit:focus circle.mk, .tl-hit:hover circle.mk { stroke-width: 3; }
+  .tl-notes { display: grid; gap: 8px; margin-top: 10px; }
+  .tl-notes .n { display: grid; grid-template-columns: 26px 1fr; gap: 8px; font-size: 14px; color: var(--text-secondary); }
+  .tl-notes .badge {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700;
+  }
+
+  /* ---------- walkthrough ---------- */
+  .wt-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 20px 0 14px; }
+  .wt-tabs button {
+    font: 600 14px/1 system-ui, sans-serif; color: var(--text-secondary);
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 999px;
+    padding: 9px 16px; cursor: pointer;
+  }
+  .wt-tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .wt-panel { min-height: 240px; }
+  .wt-panel h3 { margin-bottom: 4px; }
+  .wt-panel .what { color: var(--text-secondary); font-size: 14.5px; margin-bottom: 14px; }
+  .dlg { display: grid; gap: 8px; }
+  .dlg .m { max-width: 44em; border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+  .dlg .coach { background: var(--accent-wash); }
+  .dlg .you { background: var(--code-bg); margin-left: 40px; }
+  .dlg .who { font-size: 11.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+  .wt-nav { display: flex; gap: 10px; margin-top: 14px; }
+  .wt-nav button {
+    font: 600 13.5px/1 system-ui, sans-serif; color: var(--text-primary);
+    background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  }
+  .wt-nav button:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ---------- simulator ---------- */
+  .sim { padding: 22px; }
+  .sim-tiles { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; }
+  .tile { flex: 1 1 180px; }
+  .tile .label { font-size: 13.5px; color: var(--text-secondary); }
+  .tile .value { font-size: 44px; font-weight: 650; line-height: 1.15; }
+  .tile .value small { font-size: 20px; color: var(--text-muted); font-weight: 600; }
+  .tile .lvl { font-size: 24px; font-weight: 650; padding-top: 8px; }
+  .gate-banner {
+    display: none; margin-top: 14px; border-left: 3px solid var(--status-critical);
+    background: var(--surface-1); border-radius: 0 8px 8px 0; padding: 10px 14px;
+    font-size: 14px; color: var(--text-secondary);
+    border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+  .gate-banner b { color: var(--status-critical); }
+  .meter-wrap { margin: 20px 0 6px; }
+  .meter svg { width: 100%; height: 64px; display: block; }
+  .band-labels { display: flex; margin-top: 6px; font-size: 13px; color: var(--text-secondary); }
+  .band-labels div { text-align: center; }
+  .band-labels b { color: var(--text-primary); display: block; }
+  .sim-items { margin-top: 20px; display: grid; gap: 10px; }
+  .sim-row {
+    display: grid; grid-template-columns: minmax(180px, 1fr) auto; gap: 10px; align-items: center;
+    border: 1px solid var(--hairline); border-radius: 10px; padding: 10px 14px;
+  }
+  .sim-row .it { font-size: 14px; font-weight: 600; }
+  .sim-row .it small { display: block; font-weight: 400; color: var(--text-muted); font-size: 12.5px; }
+  .seg { display: flex; gap: 4px; flex-wrap: wrap; }
+  .seg label {
+    font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; cursor: pointer;
+    background: var(--surface-1); user-select: none;
+  }
+  .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .seg input:checked + label { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sim-explain { margin-top: 16px; border-top: 1px solid var(--hairline); padding-top: 12px; font-size: 14px; color: var(--text-secondary); min-height: 44px; }
+  .sim-explain b { color: var(--text-primary); }
+  @media (max-width: 640px) { .sim-row { grid-template-columns: 1fr; } }
+
+  /* ---------- tables ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin-top: 14px; }
+  th { text-align: left; font-size: 12.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); font-weight: 650; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--hairline); }
+  td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  td:first-child { white-space: nowrap; font-weight: 600; }
+  .muted { color: var(--text-muted); }
+  tr:last-child td { border-bottom: none; }
+  .num-col { font-variant-numeric: tabular-nums; }
+
+  /* ---------- callout ---------- */
+  .callout {
+    border-left: 3px solid var(--status-critical); background: var(--surface-1);
+    border-radius: 0 10px 10px 0; padding: 16px 20px; margin-top: 18px;
+    border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  }
+  .callout.good { border-left-color: var(--status-good); }
+  .callout p { color: var(--text-secondary); font-size: 14.5px; }
+
+  /* ---------- privacy ---------- */
+  .boundary { display: grid; grid-template-columns: 1fr 1fr; margin-top: 22px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .boundary .side { padding: 20px 22px; background: var(--surface-1); }
+  .boundary .side + .side { border-left: 2px dashed var(--hairline); }
+  .boundary ul { list-style: none; padding: 0; margin-top: 12px; display: grid; gap: 9px; }
+  .boundary li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; font-size: 14px; color: var(--text-secondary); }
+  .boundary li b { color: var(--text-primary); }
+  .mark-ok { color: var(--status-good); font-weight: 700; }
+  .mark-no { color: var(--status-critical); font-weight: 700; }
+  @media (max-width: 640px) {
+    .boundary { grid-template-columns: 1fr; }
+    .boundary .side + .side { border-left: none; border-top: 2px dashed var(--hairline); }
+  }
+
+  /* ---------- commands ---------- */
+  .cmd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 22px; }
+  .cmd-grid .card h3 { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15.5px; color: var(--accent); }
+  .cmd-grid p { color: var(--text-secondary); font-size: 14.5px; margin-top: 8px; }
+
+  /* ---------- faq ---------- */
+  details { border-bottom: 1px solid var(--hairline); padding: 14px 2px; }
+  details:last-of-type { border-bottom: none; }
+  summary { cursor: pointer; font-weight: 650; font-size: 15.5px; }
+  details p { color: var(--text-secondary); font-size: 14.5px; margin-top: 10px; max-width: 52em; }
+
+  footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--hairline); color: var(--text-muted); font-size: 13.5px; }
+  footer p + p { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="row">
+    <span class="b">Agentwright</span>
+    <a href="#measures">Measures</a>
+    <a href="#day">A day</a>
+    <a href="#cycle">Coach cycle</a>
+    <a href="#score">Score</a>
+    <a href="#commands">Commands</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#faq">FAQ</a>
+    <span class="lang"><b>EN</b> · <a href="index.ru.html">RU</a></span>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <h1>Agentwright</h1>
+    <span class="for">for Claude Code</span>
+  </div>
+  <p class="tagline">Not tokens burned — <em>harness maturity</em>.</p>
+  <p class="sub">
+    Agentwright measures how well you <strong>work with</strong> Claude Code, not how much you
+    spend on it — and coaches you by turning your real, recurring friction into rules, hooks,
+    and gates, then verifying that each fix actually worked. Everything runs locally.
+  </p>
+</header>
+
+<!-- ================= WHAT IT MEASURES ================= -->
+<section id="measures">
+  <h2>What it measures</h2>
+  <p class="lede">
+    Mechanics the model performs for you aren't graded. Four things that grow
+    <strong>more</strong> valuable as models improve are:
+  </p>
+  <div class="grid4">
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--accent)"></span>Landscape</h3>
+      <p>Do you know a lever <strong>exists</strong> — hooks, gates, MCP, subagents, plan mode?</p>
+    </div>
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--axis-judgment)"></span>Judgment</h3>
+      <p>Given a real friction, do you pick the <strong>appropriate</strong> lever — and justify it by consequences?</p>
+    </div>
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--axis-oversight)"></span>Oversight</h3>
+      <p>Do you catch quiet defects where errors are <strong>expensive</strong> — security, harness, irreversible actions?</p>
+    </div>
+    <div class="card">
+      <h3><span class="axis-dot" style="background:var(--axis-outcome)"></span>Outcome</h3>
+      <p>Is there an appropriate, working, <strong>safe</strong> setup — regardless of who built it?</p>
+    </div>
+  </div>
+  <div class="callout good" style="margin-top:18px">
+    <h3>A deliberate "no" earns full credit</h3>
+    <p>
+      Don't use a lever, but can explain the tradeoff that rules it out in your context?
+      Full credit, marked as a <strong>conscious refusal</strong>. Seniority is
+      <em>closed consciously</em>, not <em>everything installed</em>.
+      Try it yourself in the <a href="#score">score simulator</a> below.
+    </p>
+  </div>
+</section>
+
+<!-- ================= A DAY THROUGH THE PLUGIN'S EYES ================= -->
+<section id="day">
+  <h2>A day through the plugin's eyes</h2>
+  <p class="lede">
+    Hooks log only minimal metadata: event kind, tool name, failure category, project,
+    timestamp. Here is one real-shaped day — <strong>hover or tab over the marks</strong> to
+    see exactly what gets recorded, and what the detectors make of it.
+  </p>
+
+  <div class="card tl-card">
+    <div class="tl-wrap" id="tlwrap">
+      <svg viewBox="0 0 900 230" aria-label="Timeline of one day with two Claude Code sessions, showing turns, a failure burst, a context compaction and an overlap between sessions.">
+        <!-- time axis -->
+        <line x1="60" y1="196" x2="880" y2="196" stroke="var(--hairline)" stroke-width="1"/>
+        <g font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif" text-anchor="middle">
+          <text x="100" y="212">10:00</text><text x="200" y="212">11:00</text>
+          <text x="300" y="212">12:00</text><text x="400" y="212">13:00</text>
+          <text x="500" y="212">14:00</text><text x="600" y="212">15:00</text>
+          <text x="700" y="212">16:00</text><text x="800" y="212">17:00</text>
+        </g>
+        <!-- lane labels -->
+        <g font-size="12" fill="var(--text-secondary)" font-family="system-ui, sans-serif">
+          <text x="8" y="64">Session A</text>
+          <text x="8" y="150">Session B</text>
+          <text x="8" y="79" font-size="10.5" fill="var(--text-muted)">shop-api</text>
+          <text x="8" y="165" font-size="10.5" fill="var(--text-muted)">shop-api</text>
+        </g>
+        <!-- lane baselines -->
+        <line x1="60" y1="60" x2="880" y2="60" stroke="var(--hairline)" stroke-width="1"/>
+        <line x1="60" y1="146" x2="880" y2="146" stroke="var(--hairline)" stroke-width="1"/>
+        <!-- activity waves (washes) -->
+        <rect x="95" y="44" width="255" height="32" rx="6" fill="var(--accent-wash)"/>
+        <rect x="595" y="44" width="195" height="32" rx="6" fill="var(--accent-wash)"/>
+        <rect x="645" y="130" width="110" height="32" rx="6" fill="var(--accent-wash)"/>
+        <!-- annotation badges -->
+        <g font-family="system-ui, sans-serif" font-size="12" font-weight="700">
+          <circle cx="470" cy="60" r="11" fill="var(--accent)"/><text x="470" y="64" text-anchor="middle" fill="#fff">1</text>
+          <circle cx="700" cy="103" r="11" fill="var(--accent)"/><text x="700" y="107" text-anchor="middle" fill="#fff">2</text>
+          <circle cx="278" cy="24" r="11" fill="var(--accent)"/><text x="278" y="28" text-anchor="middle" fill="#fff">3</text>
+        </g>
+        <!-- Session A wave 1 turns -->
+        <g id="mks"></g>
+      </svg>
+      <div class="tl-tip" id="tltip" role="status"></div>
+    </div>
+    <div class="tl-legend">
+      <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--accent)"/></svg> turn (a prompt)</span>
+      <span><svg width="14" height="14"><path d="M3 3 L11 11 M11 3 L3 11" stroke="var(--status-critical)" stroke-width="2.4"/></svg> tool failure</span>
+      <span><svg width="14" height="14"><rect x="2" y="2" width="10" height="10" rx="2" transform="rotate(45 7 7)" fill="var(--axis-oversight)"/></svg> context compaction</span>
+      <span><svg width="26" height="14"><rect x="0" y="2" width="26" height="10" rx="4" fill="var(--accent-wash)"/></svg> activity wave</span>
+    </div>
+    <div class="tl-notes">
+      <div class="n"><span class="badge">1</span><span>Two waves with a 2.5-hour gap and a compaction in between → the coach asks: <em>"was that more than one task? Here's session splitting."</em> (opportunity O1)</span></div>
+      <div class="n"><span class="badge">2</span><span>Session B overlaps Session A in the <em>same repo</em> → <em>"parallel work in one checkout — a worktree gives each stream its own directory."</em> (O2)</span></div>
+      <div class="n"><span class="badge">3</span><span>Three test failures within 12 minutes → <em>"after the second failed fix, rewinding beats patching the patch."</em> (O4) — and the recurring <code>test</code> category itself nominates a test-gate hook (lever L1).</span></div>
+    </div>
+  </div>
+  <p class="hint" style="margin-top:10px">
+    Detectors nominate, they never convict — every observation becomes a question, and a
+    conscious "no" is remembered and never re-asked.
+  </p>
+
+  <div class="flow">
+    <div class="node hooked">
+      <div class="k">All day · passive</div>
+      <div class="t">Hooks append to the journal</div>
+      <div class="d">Per-day, per-session files. No analysis.</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node hooked">
+      <div class="k">Next day · first start</div>
+      <div class="t">A one-line reminder</div>
+      <div class="d">Only if unreviewed friction exists. It wakes — it never works.</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="node">
+      <div class="k">On your command</div>
+      <div class="t">/agentwright:coach</div>
+      <div class="d">Reviews, fixes, archives, sets the daily flag. Interruption-safe.</div>
+    </div>
+  </div>
+  <p class="hint">
+    Collection and review are bound to the same action — starting Claude Code — so they can
+    never drift more than one cycle apart.
+  </p>
+</section>
+
+<!-- ================= COACH CYCLE WALKTHROUGH ================= -->
+<section id="cycle">
+  <h2>The coaching cycle — click through a real run</h2>
+  <p class="lede">
+    One <code>/agentwright:coach</code> run is one closed loop over the journal above.
+    Step through it on the worked example: <strong>recurring test failures in
+    <code>shop-api</code></strong>.
+  </p>
+
+  <div class="card">
+    <div class="wt-tabs" role="tablist" id="wtabs">
+      <button role="tab" aria-selected="true" data-i="0">0 · Verify past</button>
+      <button role="tab" aria-selected="false" data-i="1">1 · Group + nominate</button>
+      <button role="tab" aria-selected="false" data-i="2">2 · Your judgment</button>
+      <button role="tab" aria-selected="false" data-i="3">3 · Compare</button>
+      <button role="tab" aria-selected="false" data-i="4">4 · Apply safely</button>
+      <button role="tab" aria-selected="false" data-i="5">5 · Record &amp; close</button>
+    </div>
+    <div class="wt-panel" id="wpanel"></div>
+    <div class="wt-nav">
+      <button id="wprev" type="button">← Back</button>
+      <button id="wnext" type="button">Next step →</button>
+    </div>
+  </div>
+  <p class="hint" style="margin-top:10px">
+    ⟲ The next run starts at Step 0 again — every fix is eventually verified by its effect,
+    or rolled back. That loop is what no analytics dashboard gives you.
+  </p>
+</section>
+
+<!-- ================= SCORE + SIMULATOR ================= -->
+<section id="score">
+  <h2>The Agentwright Score — try the formula</h2>
+  <p class="lede">
+    <code>/agentwright:score</code> scans your artifacts, walks a 24-item checklist, asks a
+    short situational dialog, and produces a number from 1 to 100. Below is the real formula
+    on <strong>7 of the 24 items</strong> (a representative sample from the artifact-probed
+    sections — the full map is under the simulator) — <strong>click the statuses</strong>
+    and watch what happens. Same facts + same answers → same score.
+  </p>
+
+  <div class="card sim">
+    <div class="sim-tiles">
+      <div class="tile">
+        <div class="label">Agentwright Score</div>
+        <div class="value"><span id="scoreN">70</span><small> /100</small></div>
+      </div>
+      <div class="tile">
+        <div class="label">Level</div>
+        <div class="lvl" id="levelN">Agent Builder</div>
+      </div>
+    </div>
+    <div class="gate-banner" id="gateB"></div>
+
+    <div class="meter-wrap">
+      <div class="meter">
+        <svg viewBox="0 0 900 64" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="0"   y="26" width="529" height="18" rx="4" fill="var(--band-1)"/>
+          <rect x="533" y="26" width="220" height="18" rx="4" fill="var(--band-2)"/>
+          <rect x="757" y="26" width="143" height="18" rx="4" fill="var(--band-3)"/>
+          <line id="mline" x1="630" y1="14" x2="630" y2="56" stroke="var(--text-primary)" stroke-width="2"/>
+          <text id="mtext" x="630" y="9" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text-primary)" font-family="system-ui, sans-serif">70</text>
+          <text x="2" y="60" font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif">1</text>
+          <text x="533" y="60" font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif" text-anchor="middle">60</text>
+          <text x="757" y="60" font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif" text-anchor="middle">85</text>
+          <text x="898" y="60" font-size="11" fill="var(--text-muted)" font-family="system-ui, sans-serif" text-anchor="end">100</text>
+        </svg>
+      </div>
+      <div class="band-labels">
+        <div style="flex: 0 0 59%"><b>Agent Apprentice</b>1–59</div>
+        <div style="flex: 0 0 25%"><b>Agent Builder</b>60–84</div>
+        <div style="flex: 0 0 16%"><b>Agent Architect</b>85–100</div>
+      </div>
+    </div>
+
+    <div class="sim-items" id="simItems"></div>
+    <div class="sim-explain" id="simExplain">
+      Click any status. <b>conscious refusal</b> = you name the lever's tradeoff and why it
+      doesn't fit your context — worth as much as having it.
+    </div>
+  </div>
+
+  <h3 style="margin-top:34px">The full checklist — what the letters mean</h3>
+  <p class="lede" style="margin-bottom:0">
+    The letters are checklist sections. The real score run walks all 24 items; the simulator
+    samples 7 of them (sections C, E, F aren't shown — C/E are dialog-judged, F needs run
+    history). Full definitions: <code>references/checklist.md</code>.
+  </p>
+  <table>
+    <thead><tr><th>Section</th><th>Items</th><th>What it covers</th></tr></thead>
+    <tbody>
+      <tr><td>S · Security</td><td class="num-col">S1–S5</td><td>Secrets, permissions, MCP tokens, destructive-command guard — weight 2.0, feeds the gate</td></tr>
+      <tr><td>A · Context &amp; memory</td><td class="num-col">A1–A3</td><td>Project and user CLAUDE.md, lessons captured into persistent artifacts</td></tr>
+      <tr><td>B · Guarantees &amp; loops</td><td class="num-col">B1–B3</td><td>Hooks in active use, automatic test/lint loop, blocking CI gate</td></tr>
+      <tr><td>C · Delegation primitives</td><td class="num-col">C1–C3</td><td>Custom skills/commands, subagents, MCP where the project needs it</td></tr>
+      <tr><td>D · Judgment &amp; landscape</td><td class="num-col">D1–D6</td><td>Dialog-based: lever choice on real friction, plan mode, context discipline, model-per-task, parallelism</td></tr>
+      <tr><td>E · Oversight</td><td class="num-col">E1–E2</td><td>Review at expensive points; pruning rules and hooks that false-positive</td></tr>
+      <tr><td>F · Effect</td><td class="num-col">F1–F2</td><td>Verified friction reduction between runs — weight 2.0, scored from the 2nd run</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:30px">The rules behind what you just clicked</h3>
+  <table>
+    <thead><tr><th>Status</th><th>Meaning</th><th class="num-col">Credit</th></tr></thead>
+    <tbody>
+      <tr><td>present</td><td>Exists <em>and is in use</em> (probe evidence)</td><td class="num-col">1.0</td></tr>
+      <tr><td>conscious refusal</td><td>Absent, but you name the lever, its tradeoff, and a context-specific reason</td><td class="num-col">1.0</td></tr>
+      <tr><td>partial</td><td>Exists but weak — a generic CLAUDE.md, an allow-list with no deny-list</td><td class="num-col">0.5</td></tr>
+      <tr><td>absent</td><td>Missing, and the lever wasn't on your map — becomes the growth plan</td><td class="num-col">0.0</td></tr>
+      <tr><td>not assessed</td><td>Probe impossible — excluded from the denominator</td><td class="num-col muted">excluded</td></tr>
+    </tbody>
+  </table>
+  <pre style="margin-top:14px"><code>score = round( 100 × Σ(credit × weight) / Σ(weight) )   ·   weights: security &amp; effect 2.0, HIGH-cost 1.5, cheap 1.0
+then the security gate: live finding → cap 59 (below Builder) · partial security → cap 84 (below Architect)</code></pre>
+
+  <h3 style="margin-top:30px">Anti-gaming rules</h3>
+  <table>
+    <tbody>
+      <tr><td>Fresh artifacts</td><td>An empty skill created minutes before scoring counts <em>partial</em> at best — usage evidence is needed for full credit.</td></tr>
+      <tr><td>Refusal quality bar</td><td>"I don't need it" without a why = absent. The refusal must show you know what the lever guarantees and what it costs.</td></tr>
+      <tr><td>Score can fall</td><td>A lever that didn't work, growing friction, a regressed permission — the number goes down, with the reason stated.</td></tr>
+      <tr><td>No mercy rounding</td><td>84.4 is 84. Level boundaries are never rounded across.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ================= COMMANDS ================= -->
+<section id="commands">
+  <h2>Commands</h2>
+  <div class="cmd-grid">
+    <div class="card">
+      <h3>/agentwright:score</h3>
+      <p>Deterministic scan → checklist → short situational dialog → weighted score with
+      security gate → persistent scorecard. Ends with up to three growth items — only real
+      gaps, never padding — each tied to a practical task in your own repo (and a free
+      Anthropic Academy module when a fitting one exists).</p>
+    </div>
+    <div class="card">
+      <h3>/agentwright:coach</h3>
+      <p>The closed loop you clicked through above — verify past fixes (rates per 100
+      turns of activity), group frictions, nominate opportunities, your judgment first,
+      apply safely from a vetted lever library, record. Also triggers when you complain
+      about recurring friction.</p>
+    </div>
+    <div class="card">
+      <h3>/agentwright:log</h3>
+      <p>One-line friction capture in the moment: "this took three tries again". No hook can
+      see what annoyed <em>you</em> — manual notes are the highest-signal input, quoted
+      verbatim when the coach groups frictions.</p>
+    </div>
+    <div class="card">
+      <h3>/agentwright:show</h3>
+      <p>Instant read-only display of the saved score — screen-share friendly: headline,
+      axes, per-project lines, trend. Every score run seals the card; a scorecard edited
+      by hand is refused, not displayed. Self-assessed, and the card says so.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PRIVACY ================= -->
+<section id="privacy">
+  <h2>Privacy boundary</h2>
+  <p class="lede">
+    Everything is local; nothing is transmitted anywhere. The boundary is architectural —
+    the forbidden side isn't just unused, the code contains no path that reads it
+    (per the <a href="https://support.claude.com/en/articles/13145358-anthropic-software-directory-policy">Anthropic Software Directory Policy</a>, §1.D/§1.F).
+  </p>
+  <div class="boundary">
+    <div class="side">
+      <h3><span class="mark-ok">✓</span> Reads</h3>
+      <ul>
+        <li><span class="mark-ok">✓</span><span><b>Its own journal</b> — event kind, tool name, failure category, project name, timestamp, plus notes you log yourself</span></li>
+        <li><span class="mark-ok">✓</span><span><b>Your config artifacts</b> — settings.json, CLAUDE.md, hooks, skills, agents, .mcp.json</span></li>
+        <li><span class="mark-ok">✓</span><span><b>Repo state</b> — .gitignore coverage, CI (GitHub or GitLab), pre-commit config, secrets scan; a multi-repo workspace root is scanned per repo, personal non-git folders are left alone</span></li>
+        <li><span class="mark-ok">✓</span><span><b>Its own scorecard</b> — score history and recorded actions</span></li>
+      </ul>
+    </div>
+    <div class="side">
+      <h3><span class="mark-no">✕</span> Never touches</h3>
+      <ul>
+        <li><span class="mark-no">✕</span><span><b>Conversation transcripts</b> — <code>~/.claude/projects/</code></span></li>
+        <li><span class="mark-no">✕</span><span><b>Usage analytics data</b> — <code>~/.claude/usage-data/</code>, insights reports, session summaries</span></li>
+        <li><span class="mark-no">✕</span><span><b>Prompts, tool inputs/outputs, error text</b> — not even for logging</span></li>
+        <li><span class="mark-no">✕</span><span><b>The network</b> — no telemetry, no uploads; delete <code>~/.claude/agentwright/</code> to erase everything</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= INSTALL ================= -->
+<section id="install">
+  <h2>Install &amp; quickstart</h2>
+  <p class="lede">Requirements: Claude Code, <code>bash</code>, <code>python3</code>.
+  Optional: <code>git</code> and <code>gitleaks</code> sharpen the probes.</p>
+  <pre><code># development / local use — active only in sessions started this way
+claude --plugin-dir /path/to/agentwright
+
+# or install from the marketplace
+/plugin marketplace add Victor-Borisov/agentwright
+/plugin install agentwright@agentwright</code></pre>
+  <p class="lede" style="margin-top:14px">
+    Then run <code>/agentwright:score</code> for your baseline. Hooks start journaling from
+    that moment; give the coach a day or two of real work before the first
+    <code>/agentwright:coach</code>.
+  </p>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section id="faq">
+  <h2>FAQ</h2>
+  <details>
+    <summary>Will it replace or break my existing statusline?</summary>
+    <p>No. Plugins cannot install statuslines in Claude Code — a statusline is configured only
+    in your own <code>settings.json</code>, which Agentwright never modifies.
+    <code>scripts/statusline-example.sh</code> is an optional example: if you want the score in
+    your existing statusline, append a few lines to your current script instead of replacing it.</p>
+  </details>
+  <details>
+    <summary>Does it send my score or data anywhere?</summary>
+    <p>No. Everything is local. The plugin makes no network calls and uploads nothing, ever.
+    You can verify this: the entire codebase is a few short scripts.</p>
+  </details>
+  <details>
+    <summary>I don't use worktrees / MCP / plan mode. Will my score suffer?</summary>
+    <p>Not if it's a choice. Explain the tradeoff that rules the lever out in your context and
+    the item is credited in full as a conscious refusal — try it in the simulator above. The
+    score punishes only the levers that aren't on your map at all — and then gives you a
+    targeted way to learn each one.</p>
+  </details>
+  <details>
+    <summary>Why did my score go down?</summary>
+    <p>Three possible reasons: a security regression (gate cap), a past fix that verifiably
+    didn't work (Step 0), or friction growing while the setup stagnates. The report always
+    names the cause. A falling number you can explain beats a flattering one you can't.</p>
+  </details>
+  <details>
+    <summary>Why doesn't it analyze my conversations to coach me better?</summary>
+    <p>Two reasons. Policy: directory-listed software must not read Claude's chat history or
+    conversation summaries. Method: behavior visible in artifacts and outcomes (did friction
+    fall?) is verifiable; judging your prose is guesswork. Agentwright grades what can be
+    proven.</p>
+  </details>
+  <details>
+    <summary>Where is my data, and how do I reset?</summary>
+    <p>All of it lives in <code>~/.claude/agentwright/</code> — journal, flags, scorecard,
+    archive, config (your dialog language, asked once at the first score or coach run).
+    Delete that directory and Agentwright starts from zero.</p>
+  </details>
+</section>
+
+<footer>
+  <p><strong>Agentwright</strong> · MIT License · score levels: Agent Apprentice → Agent Builder → Agent Architect</p>
+  <p>Agentwright is an independent tool for Claude Code. Not affiliated with, sponsored, or
+  endorsed by Anthropic. Claude is a trademark of Anthropic, PBC.</p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============ timeline ============ */
+  var X0 = 100, PXH = 100; // 10:00 -> x=100, 100px per hour
+  function tx(h, m) { return X0 + (h - 10) * PXH + (m / 60) * PXH; }
+  var events = [];
+  [[10,0],[10,20],[10,40],[11,10],[11,35],[15,0],[15,25],[15,50],[16,20],[16,50]].forEach(function (t) {
+    events.push({ lane: 60, h: t[0], m: t[1], kind: "turn", tip: '{"event":"turn","project":"shop-api"}' });
+  });
+  [[15,30],[16,0],[16,30]].forEach(function (t) {
+    events.push({ lane: 146, h: t[0], m: t[1], kind: "turn", tip: '{"event":"turn","project":"shop-api"}' });
+  });
+  [[11,40],[11,46],[11,52]].forEach(function (t) {
+    events.push({ lane: 60, h: t[0], m: t[1], kind: "fail", tip: '{"event":"tool_failure","tool":"Bash","category":"test","project":"shop-api"}' });
+  });
+  events.push({ lane: 60, h: 12, m: 20, kind: "compact", tip: '{"event":"compact","project":"shop-api"}' });
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  var g = document.getElementById("mks");
+  var tip = document.getElementById("tltip");
+  var wrap = document.getElementById("tlwrap");
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  events.forEach(function (e) {
+    var x = tx(e.h, e.m), y = e.lane;
+    var hit = document.createElementNS(svgNS, "g");
+    hit.setAttribute("class", "tl-hit");
+    hit.setAttribute("tabindex", "0");
+    hit.setAttribute("role", "img");
+
+    var mark;
+    if (e.kind === "turn") {
+      mark = document.createElementNS(svgNS, "circle");
+      mark.setAttribute("class", "mk");
+      mark.setAttribute("cx", x); mark.setAttribute("cy", y); mark.setAttribute("r", 5);
+      mark.setAttribute("fill", "var(--accent)");
+      mark.setAttribute("stroke", "var(--surface-1)"); mark.setAttribute("stroke-width", "2");
+    } else if (e.kind === "fail") {
+      mark = document.createElementNS(svgNS, "path");
+      mark.setAttribute("d", "M" + (x-5) + " " + (y-5) + " L" + (x+5) + " " + (y+5) +
+                             " M" + (x+5) + " " + (y-5) + " L" + (x-5) + " " + (y+5));
+      mark.setAttribute("stroke", "var(--status-critical)");
+      mark.setAttribute("stroke-width", "2.6");
+      mark.setAttribute("fill", "none");
+    } else {
+      mark = document.createElementNS(svgNS, "rect");
+      mark.setAttribute("x", x - 5); mark.setAttribute("y", y - 5);
+      mark.setAttribute("width", 10); mark.setAttribute("height", 10);
+      mark.setAttribute("rx", 2);
+      mark.setAttribute("transform", "rotate(45 " + x + " " + y + ")");
+      mark.setAttribute("fill", "var(--axis-oversight)");
+    }
+
+    var hitArea = document.createElementNS(svgNS, "circle"); // >=24px hit target
+    hitArea.setAttribute("cx", x); hitArea.setAttribute("cy", y); hitArea.setAttribute("r", 13);
+    hitArea.setAttribute("fill", "transparent");
+
+    var label = { turn: "turn", fail: "tool failure (test)", compact: "context compaction" }[e.kind];
+    hit.setAttribute("aria-label", label + " at " + pad(e.h) + ":" + pad(e.m));
+
+    hit.appendChild(hitArea);
+    hit.appendChild(mark);
+    g.appendChild(hit);
+
+    function show() {
+      while (tip.firstChild) tip.removeChild(tip.firstChild);
+      var v = document.createElement("div"); v.className = "v";
+      v.textContent = pad(e.h) + ":" + pad(e.m) + " — " + label;
+      var l = document.createElement("div"); l.className = "l";
+      l.textContent = e.tip;
+      tip.appendChild(v); tip.appendChild(l);
+      tip.style.display = "block";
+      var box = wrap.getBoundingClientRect();
+      var svg = wrap.querySelector("svg").getBoundingClientRect();
+      var px = svg.left - box.left + (x / 900) * svg.width;
+      var py = svg.top - box.top + (y / 230) * svg.height;
+      tip.style.left = Math.min(px + 14, box.width - 270) + "px";
+      tip.style.top = Math.max(py - 60, 0) + "px";
+    }
+    function hide() { tip.style.display = "none"; }
+    hit.addEventListener("pointerenter", show);
+    hit.addEventListener("pointerleave", hide);
+    hit.addEventListener("focus", show);
+    hit.addEventListener("blur", hide);
+  });
+
+  /* ============ walkthrough ============ */
+  var steps = [
+    { t: "Verify past levers first",
+      w: "Trust is built on verifying yourself before advising more. Every earlier fix is checked against the journal — rates per 100 turns of activity, not raw counts.",
+      d: [["coach", "Last review I tuned your permissions (lever L4). Mechanism: the deny-list is still in place. Outcome: permission prompts 8.1 → 2.3 per 100 turns. Marking it verified ✓ — that's effect, not opinion."]] },
+    { t: "Group frictions — and nominate opportunities",
+      w: "Symptoms are grouped by root cause; session shapes are matched against the opportunity matrix (that's the timeline above).",
+      d: [["coach", "One friction group: 9 test failures across 4 sessions in shop-api — same root: no automatic verification loop."],
+          ["coach", "And one nomination: yesterday's 7-hour session ran in two waves with a compaction between. Was that more than one task?"],
+          ["you", "Yes — I switched to a hotfix and came back after lunch."],
+          ["coach", "Then a lever exists you haven't used: a session per task. /clear between tasks, or a new session — the old one stays resumable. Cost: one habit. Want to try it this week?"]] },
+    { t: "Your judgment — before the coach shows its own",
+      w: "The judgment-training moment. Never skipped, never led.",
+      d: [["coach", "The test-failure group: what would you reach for — a CLAUDE.md rule, a hook, a CI gate, nothing? Why?"],
+          ["you", "A rule in CLAUDE.md? \"Always run tests after edits\"."]] },
+    { t: "Compare and highlight the divergence",
+      w: "The coach justifies by consequences — the guarantee ladder: rule = a wish · hook = a guarantee that costs latency · CI = a hard stop that costs cycle time.",
+      d: [["coach", "A rule is a wish — the agent will sometimes skip it, and your failures repeat within minutes, so you need a guarantee: a PostToolUse hook that runs the fast test subset after each edit (lever L1). Your suite's quick set runs in ~25s, so the latency is acceptable. If it were 20 minutes, I'd say CI gate instead — that's the whole tradeoff."]] },
+    { t: "Apply the agreed fix — safely",
+      w: "Cost decides ceremony. HIGH-cost artifacts (hooks, permissions, CI) get a proof test + your review; cheap ones are applied without ceremony.",
+      d: [["coach", "Here's the hook. Proof test: I broke a trivial assertion, edited a file — the hook reported the failure (non-zero exit). Restored. Review the 6 lines?"],
+          ["you", "Looks right — apply."],
+          ["coach", "Applied in its own commit (rollback = one command). Recorded in the scorecard: expected effect — tool_failure/test rate per 100 turns drops in shop-api."]] },
+    { t: "Record and close the day",
+      w: "Journal files are archived, the daily flag is set, and the landscape gap found in Step 2 gets exactly one pointed learning link.",
+      d: [["coach", "Done: 1 friction treated, 1 opportunity taught, 1 past fix verified. Your Step-2 pick was a rule where a guarantee was needed — the hooks module of Anthropic Academy's Claude Code course covers exactly this; the practical task is already in your repo: watch the new hook catch tomorrow's first failure."]] }
+  ];
+
+  var tabs = document.getElementById("wtabs").querySelectorAll("button");
+  var panel = document.getElementById("wpanel");
+  var cur = 0;
+
+  function render(i) {
+    cur = i;
+    for (var k = 0; k < tabs.length; k++) tabs[k].setAttribute("aria-selected", k === i ? "true" : "false");
+    while (panel.firstChild) panel.removeChild(panel.firstChild);
+    var h = document.createElement("h3"); h.textContent = "Step " + i + " — " + steps[i].t;
+    var w = document.createElement("p"); w.className = "what"; w.textContent = steps[i].w;
+    var dlg = document.createElement("div"); dlg.className = "dlg";
+    steps[i].d.forEach(function (m) {
+      var box = document.createElement("div"); box.className = "m " + (m[0] === "coach" ? "coach" : "you");
+      var who = document.createElement("div"); who.className = "who";
+      who.textContent = m[0] === "coach" ? "Coach" : "You";
+      var txt = document.createElement("div"); txt.textContent = m[1];
+      box.appendChild(who); box.appendChild(txt); dlg.appendChild(box);
+    });
+    panel.appendChild(h); panel.appendChild(w); panel.appendChild(dlg);
+  }
+  for (var k = 0; k < tabs.length; k++) {
+    (function (idx) { tabs[idx].addEventListener("click", function () { render(idx); }); })(k);
+  }
+  document.getElementById("wprev").addEventListener("click", function () { render((cur + steps.length - 1) % steps.length); });
+  document.getElementById("wnext").addEventListener("click", function () { render((cur + 1) % steps.length); });
+  render(0);
+
+  /* ============ score simulator ============ */
+  var P = "present", R = "conscious refusal", H = "partial", A = "absent";
+  var items = [
+    { id: "S1", name: "No secrets in repo or git history", note: "security · weight 2.0", w: 2, sec: true,  opts: [P, H, A], init: P,
+      exp: { present: "Probe found no secrets — full credit.", partial: "Pattern scan only (gitleaks unavailable) — unverified security caps you at 84: a solid Builder, but not an Architect.", absent: "A live secret. Whatever else you build, the gate caps you below Builder." } },
+    { id: "S3", name: "Permissions narrowed (deny-list, no allow-*)", note: "security · weight 2.0", w: 2, sec: true, opts: [P, H, A], init: P,
+      exp: { present: "Deny-list on destructive commands, sane mode — full credit.", partial: "An allow-list but no deny-list — the gate caps at 84.", absent: "bypassPermissions as default = a live hole. Capped at 59." } },
+    { id: "B2", name: "Automatic test/lint loop (hook or pre-commit)", note: "HIGH-cost · weight 1.5", w: 1.5, opts: [P, R, H, A], init: A,
+      exp: { present: "The agent sees failures immediately and fixes them unprompted.", "conscious refusal": "\"Suite takes 20 min, I gate in CI\" — names the tradeoff, full credit.", partial: "A hook exists but can't fail (exit 0) — decoration, half credit.", absent: "Failures repeat and nothing catches them — this becomes growth item #1." } },
+    { id: "B3", name: "Blocking CI gate", note: "HIGH-cost · weight 1.5", w: 1.5, opts: [P, R, A], init: P,
+      exp: { present: "Red check blocks the merge — a hard stop.", "conscious refusal": "\"Solo prototype repo, nothing merges\" — legitimate, full credit.", absent: "Breakage reaches the shared branch unchecked." } },
+    { id: "A1", name: "Substantive project CLAUDE.md", note: "cheap · weight 1.0", w: 1, opts: [P, H, A], init: H,
+      exp: { present: "Concrete, testable conventions the agent actually follows.", partial: "Exists but generic (\"write clean code\") — half credit.", absent: "The agent re-learns your project every session." } },
+    { id: "D2", name: "Plan mode for non-trivial tasks", note: "cheap · weight 1.0", w: 1, opts: [P, R, A], init: R,
+      exp: { present: "Wrong approaches die at the plan, before the code.", "conscious refusal": "\"My tasks are small single-file fixes\" — reasoned, full credit.", absent: "The lever wasn't on your map — one question would have changed that." } },
+    { id: "D6", name: "Parallelism: worktrees / background agents", note: "cheap · weight 1.0", w: 1, opts: [P, R, A], init: A,
+      exp: { present: "Parallel streams without collisions.", "conscious refusal": "\"I work one stream at a time\" — fine, full credit.", absent: "Remember the timeline overlap ② above? This is that lever." } }
+  ];
+  var credit = {}; credit[P] = 1; credit[R] = 1; credit[H] = 0.5; credit[A] = 0;
+
+  var itemsBox = document.getElementById("simItems");
+  var explain = document.getElementById("simExplain");
+  var state = {};
+
+  items.forEach(function (it) {
+    state[it.id] = it.init;
+    var row = document.createElement("div"); row.className = "sim-row";
+    var left = document.createElement("div"); left.className = "it";
+    left.textContent = it.id + " · " + it.name;
+    var small = document.createElement("small"); small.textContent = it.note;
+    left.appendChild(small);
+    var seg = document.createElement("div"); seg.className = "seg";
+    it.opts.forEach(function (o, oi) {
+      var inp = document.createElement("input");
+      inp.type = "radio"; inp.name = "sim-" + it.id; inp.id = "sim-" + it.id + "-" + oi;
+      inp.checked = (o === it.init);
+      var lab = document.createElement("label");
+      lab.setAttribute("for", inp.id);
+      lab.textContent = (it.sec && o === A) ? "absent (live finding)" : o;
+      inp.addEventListener("change", function () { state[it.id] = o; update(it, o); });
+      seg.appendChild(inp); seg.appendChild(lab);
+    });
+    row.appendChild(left); row.appendChild(seg);
+    itemsBox.appendChild(row);
+  });
+
+  var scoreN = document.getElementById("scoreN");
+  var levelN = document.getElementById("levelN");
+  var gateB = document.getElementById("gateB");
+  var mline = document.getElementById("mline");
+  var mtext = document.getElementById("mtext");
+
+  function update(lastItem, lastStatus) {
+    var num = 0, den = 0, capItem = null, cap = 101;
+    items.forEach(function (it) {
+      var s = state[it.id];
+      num += credit[s] * it.w; den += it.w;
+      if (it.sec && s === A && cap > 59) { cap = 59; capItem = it.id; }
+      if (it.sec && s === H && cap > 84) { cap = 84; if (!capItem) capItem = it.id; }
+    });
+    var raw = Math.round(100 * num / den);
+    var score = Math.min(raw, cap);
+    scoreN.textContent = String(score);
+    levelN.textContent = score >= 85 ? "Agent Architect" : score >= 60 ? "Agent Builder" : "Agent Apprentice";
+    if (raw > cap) {
+      gateB.style.display = "block";
+      while (gateB.firstChild) gateB.removeChild(gateB.firstChild);
+      var b = document.createElement("b");
+      b.textContent = "Security gate: ";
+      gateB.appendChild(b);
+      gateB.appendChild(document.createTextNode(
+        "formula gives " + raw + ", capped at " + cap + " by " + capItem +
+        (cap === 59 ? " — a live hole means you can't even be a Builder." : " — half-closed security means no Architect title.")));
+    } else {
+      gateB.style.display = "none";
+    }
+    var x = Math.max(8, Math.min(892, score * 9));
+    mline.setAttribute("x1", x); mline.setAttribute("x2", x);
+    mtext.setAttribute("x", x); mtext.textContent = String(score);
+    if (lastItem) {
+      while (explain.firstChild) explain.removeChild(explain.firstChild);
+      var bb = document.createElement("b");
+      bb.textContent = lastItem.id + " → " + lastStatus + " (credit " + credit[lastStatus] + " × weight " + lastItem.w + "): ";
+      explain.appendChild(bb);
+      explain.appendChild(document.createTextNode(lastItem.exp[lastStatus] || ""));
+    }
+  }
+  update(null, null);
+})();
+</script>
+</body>
+</html>

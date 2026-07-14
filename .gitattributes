@@ -1,0 +1,5 @@
+# Hook scripts run under bash/python on the user's machine — CRLF breaks them.
+# Force LF in the repo AND in every working copy, regardless of core.autocrlf.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

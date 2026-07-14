@@ -1,0 +1,186 @@
+---
+description: >
+  Review accumulated Claude Code friction and turn it into rules, hooks, or gates —
+  then verify on later runs that the fix actually worked. Use when the user runs the
+  coach, when the session-start reminder mentions pending friction signals, or when
+  the user complains about recurring friction ("it keeps failing", "I always have to
+  repeat this"). Follows a strict cycle: verify past fixes first, group fresh
+  frictions, ask the user's judgment BEFORE showing your own, apply fixes safely,
+  record for the next verification.
+allowed-tools: "Bash, Read, Write, Edit"
+---
+
+# Agentwright Coach
+
+One run = one closed loop. The order below is mandatory — especially Step 0 before
+anything new: trust is built on verifying yourself before advising more.
+
+**Dialog language.** Read `~/.claude/agentwright/config.json`; if `language` is set,
+conduct the entire dialog in it. If missing, ask for the preferred dialog language as
+your first question, merge the answer into the config (`{"v": 1, "language": "<answer>"}`,
+create with python3 if needed, never jq), and continue in it. Artifacts (scorecard,
+journal notes) stay English. Data lives in `~/.claude/agentwright/`:
+`pending/pending-YYYY-MM-DD-<session>.jsonl` (friction journal, written by this
+plugin's own hooks), `scorecard.json`, `flags/reviewed-YYYY-MM-DD`.
+
+## Journal vocabulary
+
+Each JSONL line: `{v, ts, event, project, tool?, category?, note?}`.
+
+| event | Meaning | Role |
+|---|---|---|
+| `tool_failure` | A tool call failed; for Bash, `category` ∈ test/lint/build/install/git/other | friction |
+| `permission_denied` | Denied by the AUTO-mode classifier only — users in default mode clicking "No" produce NO event; treat absence as no-signal, not as no-denials | friction |
+| `compact` | Context was compacted mid-session | friction |
+| `manual` | User-authored note (via /agentwright:log) — their own words in `note` | friction, highest signal |
+| `permission_request` | Permission dialog shown | rate signal: high rate = tuning friction (L4) |
+| `turn` | User submitted a prompt | denominator |
+| `stop` | A response cycle ended | denominator / session activity |
+
+**Always normalize per 100 turns** (`totals.friction_per_100_turns`). Raw counts lie
+when activity varies, and per-SESSION rates lie worse: session count is a behavior
+you yourself modify — teaching session splitting multiplies sessions and would fake
+"improvement" on every open action. Session-count metrics are reserved for verifying
+O1 only. Never claim improvement or regression from raw totals.
+
+**Deterministic layer first.** Run
+`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/session_shapes.py` (add `--archive --days 30`
+for Step 0 before/after comparisons) and work from its JSON — per-session shapes,
+failure bursts, cross-session overlaps, normalized totals. Do not re-derive shapes
+from raw JSONL lines.
+
+## Step 0 — Verify past levers FIRST
+
+Read `scorecard.json` → `actions[]` with `verified: null`. Verification is TWO-PART
+(scoring.md § Verification):
+
+- **mechanism** (deterministic, every run): the artifact is still installed and its
+  proof test still blocks/fires when re-run. Set `mechanism: true/false`.
+- **outcome** (statistical, graded strong/weak/none): requires ≥5 friction EVENTS of
+  the matching category pre-period, a post-window at least as long as the pre-window,
+  and the post rate (per 100 turns) below the **pre-spike baseline** — never below
+  the spike that triggered the fix; spikes fall by regression to the mean regardless
+  of the lever. Do not eyeball two small numbers into a verdict.
+
+Verdicts: mechanism+strong → `verified: true` (full F1 credit) · mechanism-only after
+the event floor is unmet for 4 weeks or 20 active sessions → `verified: true` with
+the note "insufficient traffic; mechanism confirmed, friction has not recurred"
+(half F1 credit) · mechanism false or outcome regressed → `verified: false`, propose
+rework or rollback (escalate the guarantee ladder: rule → hook → gate), and name
+factually what the approval missed if the artifact was defective · otherwise leave
+`null` and say exactly which floor is unmet (events or window).
+
+## Step 1 — Group fresh frictions by root cause
+
+Read all `pending/*.jsonl` files from BEFORE today. Cluster by category + project +
+recurrence — three irritations are often one hole ("no automatic verification
+loop"). Treat `manual` notes as anchors: they say what the user actually felt; quote
+them verbatim when presenting the group. A high `permission_request` rate (roughly
+>5 per session) is itself a friction group even with zero denials. Prioritize:
+HIGH-cost and frequent first. If the journal has no friction events, say so briefly
+and stop — no noise.
+
+A group whose friction already has an OPEN action in `scorecard.actions[]`
+(`verified: null`) is presented as "in verification — waiting for signal", never
+re-asked or re-treated. This also makes interrupted runs safe: if a previous cycle
+was abandoned after applying a fix, the next run recognizes the treated friction
+instead of proposing the same lever twice.
+
+**Attribution before treatment.** Failure counts conflate three different things.
+For each new group ask ONE attribution question — "agent's mistake, environment
+(flaky infra, missing deps), or you deliberately iterating (red-green TDD)?" — and
+record the answer in the group. Environment noise gets an environment fix or nothing;
+deliberate iteration is NOT friction (do not propose a lever against the user's own
+workflow); only agent-caused recurrence proceeds to Steps 2–4. Step 0 must compare
+like with like: verify against the same attribution class the action was created for.
+
+## Step 1b — Nominate missed opportunities (session shapes)
+
+Pain detectors only catch what hurts; this step catches what silently costs. Match
+the session shapes against `${CLAUDE_PLUGIN_ROOT}/references/opportunities.md`
+(long multi-wave sessions WITH a compaction → session splitting; overlapping
+sessions in one project → worktrees; huge-turn sessions → subagents; failure bursts
+→ rewind; recurring themes → a skill). Hard rules from that file: **nominate, never
+convict** (show the evidence, ask); **at most 1–2 candidates per run**; **check
+`scorecard.opportunities[]` first** — a `dismissed` entry is re-asked only when its
+recorded dismissal REASON is invalidated by new evidence (not by raw amplitude);
+every asked candidate gets recorded as `adopted` / `taught` / `dismissed`
+(`dismissed` counts as *known* for scoring — full refusal credit is minted only in
+the score dialog). The question always carries the mini-lesson (what the lever
+guarantees, what it costs) — this is where landscape teaching happens, at the moment
+of a real situation.
+
+**No friction? Teach anyway.** Update the `scorecard.levers{}` coverage map
+(never_discussed / taught / adopted / dismissed) every run. When a run has no
+friction groups and no shape nominations, spend the nomination budget on the
+highest-value `never_discussed` lever, framed against the user's real (clean)
+session data: "your sessions are clean — here's a lever you've never had a reason to
+meet." A disciplined user must not be locked out of the landscape by their own
+discipline. For levers `taught` more than ~2 weeks ago and still not adopted, ask
+one retention check ("we covered worktrees — here's last Tuesday's overlap; what
+applies?") before teaching anything new.
+
+## Step 2 — Ask the user's judgment BEFORE showing yours
+
+Per friction group: "What would you reach for here — rule in CLAUDE.md, hook, CI gate,
+MCP, nothing? Why?" Wait for the answer. This is the judgment-training moment; never
+lead the witness.
+
+**Mastery model — the ritual must not decay into a captcha.** Track consecutive
+correct picks per lever class in `scorecard.mastery{}`. After 3 consecutive correct
+picks in a class, SKIP the question for that class ("hook again — applying, say if
+you disagree") and instead spot-check occasionally (~every 4th occurrence) — that IS
+spaced repetition. A wrong spot-check answer resets the counter and the question
+returns. Forcing a fluent user to re-answer the same question is friction from a
+friction-reduction tool, and throwaway answers would corrupt the judgment signal.
+
+## Step 3 — Show your pick, compare
+
+Give your lever with a consequences-based justification (what it guarantees, what it
+costs — use the guarantee ladder from `${CLAUDE_PLUGIN_ROOT}/references/levers.md`).
+Highlight the divergence: where you agree, where not, whose fits this context better
+and why. A divergence is teaching material, not a verdict. If the user systematically
+never considers some lever class, point at the blind spot: "third time a rule where a
+guarantee is needed — there is a lever you haven't tried."
+
+## Step 4 — Apply the agreed fix, safely
+
+- Match the friction against `${CLAUDE_PLUGIN_ROOT}/references/levers.md` and start
+  from the recipe (it includes the artifact template, the proof test, and the
+  expected-effect metric). Improvise only when no recipe fits, and say you are.
+- **HIGH-cost** (hook, permissions, MCP config, CI gate — anything embedded in the
+  harness or touching security): run the recipe's **proof test** before applying
+  (e.g. feed the hook a failing case and assert the blocking exit code), show the
+  artifact and the test result, get an explicit review from the user.
+- **CHEAP** (a CLAUDE.md line, a one-off tweak): apply without ceremony.
+- If in a git repo, put the change in its own commit so rollback is one command; if
+  not, back up the file being modified first.
+- Record in `scorecard.json` → `actions[]`: friction, lever, date, `expected` (the
+  recipe's normalized metric, e.g. "tool_failure/test rate per 100 turns drops
+  in project X"), `verified: null`. Record **immediately after each individual
+  fix** — never batch records for the end of the run. An applied artifact without
+  a scorecard entry is an orphan: Step 0 will never verify it, and the next run
+  will re-propose a fix for friction that is already treated.
+
+## Step 5 — Close the day
+
+- Archive processed pending files: move them into `~/.claude/agentwright/archive/`
+  (create if needed). Never delete unprocessed ones.
+- Touch the flag: `~/.claude/agentwright/flags/reviewed-$(date +%F)`.
+- One-line summary: N frictions reviewed, M levers applied, K past actions verified.
+- If judgments in Step 2/3 revealed a landscape gap, end with ONE pointed Anthropic
+  Academy module recommendation tied to that exact gap — no course dumps.
+
+## When invoked from a passing complaint
+
+If this skill triggered because the user complained in conversation (not via the
+command), first log the complaint as a `manual` journal entry through
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/log-friction.sh "<one factual English sentence>"`,
+tell the user it was logged, and ask whether they want the full review now or at the
+next scheduled one. Do not force the whole cycle on someone mid-task.
+
+## Privacy rails (hard rules)
+
+- Work only with this plugin's own journal, git state, and config artifacts.
+- Never read `~/.claude/projects/` (transcripts) or `~/.claude/usage-data/`.
+- Never send anything anywhere; everything is local.

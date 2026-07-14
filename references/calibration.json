@@ -1,0 +1,6 @@
+{
+  "knowledge_version": 1,
+  "calibrated_for_claude_code": "2.1",
+  "calibrated_on": "2026-07-03",
+  "notes": "knowledge_version increments whenever checklist/levers/opportunities items are added, removed, or rescoped. calibrated_for_claude_code is the Claude Code major.minor the references were last swept against (see MAINTAINING.md)."
+}
