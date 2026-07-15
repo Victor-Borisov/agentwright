@@ -554,6 +554,15 @@ then the security gate: live finding → cap 59 (below Builder) · partial secur
       verbatim when the coach groups frictions.</p>
     </div>
     <div class="card">
+      <h3>/agentwright:retro</h3>
+      <p>Stuck retrospective. Detects that a session went in circles from its <em>shape</em>
+      (a failure burst, or a big session with a category stuck at a high failure ratio) —
+      never from your prompts — then finds the <em>upstream</em> fix from what you tell it:
+      fuzzy target, no plan, too big, stale context, patching-the-patch, or a missing
+      guarantee. Lands one lever; the next coach run verifies the thrashing dropped. Your
+      prompting is never graded — that's off-limits by design.</p>
+    </div>
+    <div class="card">
       <h3>/agentwright:show</h3>
       <p>Instant read-only display of the saved score — screen-share friendly: headline,
       axes, per-project lines, trend. Every score run seals the card; a scorecard edited
@@ -574,7 +583,7 @@ then the security gate: live finding → cap 59 (below Builder) · partial secur
     <div class="side">
       <h3><span class="mark-ok">✓</span> Reads</h3>
       <ul>
-        <li><span class="mark-ok">✓</span><span><b>Its own journal</b> — event kind, tool name, failure category, project name, timestamp, plus notes you log yourself</span></li>
+        <li><span class="mark-ok">✓</span><span><b>Its own journal</b> — event kind, a safe tool label (MCP server names collapsed to <code>mcp</code>), failure/success category, which capability levers you use, effort level, permission mode, project name, timestamp, plus notes you log yourself</span></li>
         <li><span class="mark-ok">✓</span><span><b>Your config artifacts</b> — settings.json, CLAUDE.md, hooks, skills, agents, .mcp.json</span></li>
         <li><span class="mark-ok">✓</span><span><b>Repo state</b> — .gitignore coverage, CI (GitHub or GitLab), pre-commit config, secrets scan; a multi-repo workspace root is scanned per repo, personal non-git folders are left alone</span></li>
         <li><span class="mark-ok">✓</span><span><b>Its own scorecard</b> — score history and recorded actions</span></li>

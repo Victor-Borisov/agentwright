@@ -1,6 +1,6 @@
 # Agentwright Checklist
 
-**Knowledge version: 3 · calibrated for Claude Code 2.1.x** (see
+**Knowledge version: 5 · calibrated for Claude Code 2.1.x** (see
 `calibration.json`). Items added in later knowledge versions must carry a
 `(new in vN)` marker until scored once — the score report treats them as "the bar
 moved", never as user regression (see scoring.md § Evolution contract).
@@ -38,7 +38,7 @@ Cost: `HIGH` = security / built into the harness / irreversible → oversight ex
 |---|---|---|---|---|
 | S1 | No secrets in repo files or git history | X | HIGH | `repo.secrets` (gitleaks or patterns) |
 | S2 | secret-shaped files are git-ignored (`.env`, keys, certs) — any ignore source counts for the user, committed `.gitignore` for the project (rescoped in v2) | X | HIGH | `repo.env_ignore` (effective, any source) / `repo.gitignore_env_covered` (committed) |
-| S3 | Permissions narrowed: deny-list on destructive commands exists; no `allow: ["*"]`; not living in `bypassPermissions` | X | HIGH | `user.settings` + `project_level.settings`; journal `permission_request` rate shows tuning quality |
+| S3 | Permissions narrowed: deny-list on destructive commands exists; no `allow: ["*"]`; not living in `bypassPermissions` | X | HIGH | `user.settings` + `project_level.settings`; journal `permission_request` rate (tuning quality) + `pmode_levels` — habitual `bypassPermissions` is an OBSERVED symptom to ask about (may be a conscious isolated-container choice → refusal, not a finding) |
 | S4 | MCP tokens via env vars, not plaintext; servers of known origin | X | HIGH | `*.mcp.plaintext_secret_suspect` |
 | S5 | Destructive-command guard (deny rules or PreToolUse hook for `rm -rf`, force-push, `DROP TABLE` / SQL writes) — user artifacts cap the user; environmental privilege (e.g. DB `db_owner`) caps the project (rescoped in v3) | X | HIGH | settings deny entries / hooks / self-authored MCP guard source |
 
@@ -78,19 +78,23 @@ the cap explicitly and put fixing it first in the growth plan.
 | C2 | Custom subagents defined where isolation/role-split helps | X | CHEAP | `user.agents`, `project_level.agents` |
 | C3 | MCP integration where the project genuinely needs external data — or a credited refusal | J+X | CHEAP* | `*.mcp` + dialog (*security side is HIGH, covered by S4) |
 
-## D — Judgment & landscape (dialog-based; not observable in artifacts)
+## D — Judgment & landscape (dialog-based, now partly signal-confirmed)
 
 Ask these IN CONTEXT — as choices about the user's real situation, never as quiz
-definitions. One good situational answer proves both landscape and judgment.
+definitions. One good situational answer proves both landscape and judgment. **Where
+the journal `capabilities` map shows a lever `used: true`, credit its landscape half
+WITHOUT asking** (scoring.md § Capability signals) — the dialog then only probes
+judgment. Only MODEL choice and multi-model orchestration remain purely dialog-based
+(model never appears in metadata).
 
-| ID | Item | Axis | Cost |
-|---|---|---|---|
-| D1 | Given a real friction from the journal: picks an appropriate lever (rule / hook / CI / MCP / nothing) and justifies by consequences | J+L | CHEAP |
-| D2 | Uses plan mode as the entry point for non-trivial multi-file tasks — or credited refusal | J | CHEAP |
-| D3 | Knows the guarantee ladder: rule (wish) → hook (guarantee, costs latency) → CI (hard gate, costs cycle time) — demonstrated by D1-style answers, not recitation | L | CHEAP |
-| D4 | Manages context deliberately (/clear between tasks, compact awareness, subagent isolation for big searches) — cross-check with journal `compact` rate per session | L+J | CHEAP |
-| D5 | Assigns models/effort by task (premium for hard, small for routine) — or credited refusal | J | CHEAP |
-| D6 | Uses parallelism when appropriate (worktrees, background agents) — or credited refusal | L | CHEAP |
+| ID | Item | Axis | Cost | Signal |
+|---|---|---|---|---|
+| D1 | Given a real friction from the journal: picks an appropriate lever (rule / hook / CI / MCP / nothing) and justifies by consequences | J+L | CHEAP | journal friction as scenario |
+| D2 | Uses plan mode as the entry point for non-trivial multi-file tasks — or credited refusal | J | CHEAP | `capabilities.plan_mode` + `unused_lever_warrants` (O10) |
+| D3 | Knows the guarantee ladder: rule (wish) → hook (guarantee, costs latency) → CI (hard gate, costs cycle time) — demonstrated by D1-style answers, not recitation | L | CHEAP | dialog |
+| D4 | Manages context deliberately (/clear between tasks, compact awareness, subagent isolation for big searches) | L+J | CHEAP | `compact` rate + `capabilities.subagent` |
+| D5 | Assigns models/effort by task (premium/max for hard, small/low for routine) — or credited refusal | J | CHEAP | `effort_distribution` (O11); model stays dialog |
+| D6 | Uses parallelism when appropriate (worktrees, background agents) — or credited refusal | L | CHEAP | `capabilities.worktree`/`subagent` (O2/O3) |
 
 ## E — Oversight (only at HIGH-cost points)
 

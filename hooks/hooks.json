@@ -6,6 +6,10 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/scripts/session-start.sh"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/scripts/collect-friction.sh session_start"
           }
         ]
       }
@@ -16,6 +20,26 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/scripts/collect-friction.sh tool_failure"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/scripts/collect-friction.sh tool_success"
+          }
+        ]
+      },
+      {
+        "matcher": "EnterPlanMode|ExitPlanMode|EnterWorktree|ExitWorktree|Task|Agent|WebSearch|WebFetch|LSP|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/scripts/collect-friction.sh tool_use"
           }
         ]
       }

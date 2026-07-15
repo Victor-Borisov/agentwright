@@ -309,9 +309,17 @@ def main():
                 "secrets": {"tool": "none", "findings": 0}}
         workspace = workspace_facts(proj)
 
+    CAP_MAP = {"EnterPlanMode": "plan_mode", "ExitPlanMode": "plan_mode",
+               "EnterWorktree": "worktree", "ExitWorktree": "worktree",
+               "Task": "subagent", "Agent": "subagent", "mcp": "mcp",
+               "WebSearch": "web", "WebFetch": "web", "LSP": "lsp"}
     pending_files = sorted(glob.glob(os.path.join(DATA_DIR, "pending", "*.jsonl")))
     events_by_type = {}
-    categories = {}
+    categories = {}          # tool_failure categories (unchanged meaning)
+    success_categories = {}  # tool_success categories (failure-ratio denominator)
+    capabilities = set()     # levers the journal shows in active use
+    effort_levels = {}
+    pmode_levels = {}
     for path in pending_files:
         try:
             with open(path, encoding="utf-8") as f:
@@ -324,9 +332,22 @@ def main():
                         continue
                     ev = str(entry.get("event", "unknown"))
                     events_by_type[ev] = events_by_type.get(ev, 0) + 1
-                    if entry.get("category"):
-                        cat = str(entry["category"])
+                    cat = str(entry["category"]) if entry.get("category") else ""
+                    if ev == "tool_failure" and cat:
                         categories[cat] = categories.get(cat, 0) + 1
+                    elif ev == "tool_success" and cat:
+                        success_categories[cat] = success_categories.get(cat, 0) + 1
+                    elif ev == "tool_use":
+                        lab = CAP_MAP.get(str(entry.get("tool", "")))
+                        if lab:
+                            capabilities.add(lab)
+                    elif ev == "session_start":
+                        if entry.get("effort"):
+                            lv = str(entry["effort"])
+                            effort_levels[lv] = effort_levels.get(lv, 0) + 1
+                        if entry.get("pmode"):
+                            pm = str(entry["pmode"])
+                            pmode_levels[pm] = pmode_levels.get(pm, 0) + 1
         except Exception:
             continue
     pending_events = sum(events_by_type.values())
@@ -372,6 +393,10 @@ def main():
             "pending_files": len(pending_files),
             "events_by_type": events_by_type,
             "failure_categories": categories,
+            "success_categories": success_categories,
+            "capabilities_used": sorted(capabilities),
+            "effort_levels": effort_levels,
+            "pmode_levels": pmode_levels,
         },
         "previous": previous,
         "calibration": calibration,

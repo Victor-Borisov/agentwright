@@ -29,6 +29,18 @@ BURST_MIN_FAILURES = 3
 FRICTION_EVENTS = {"tool_failure", "permission_denied", "compact", "manual"}
 FNAME_RE = re.compile(r"^pending-\d{4}-\d{2}-\d{2}-(?P<suffix>.+)\.jsonl$")
 
+# tool_use tool labels → capability the user demonstrably reached for
+CAP_MAP = {
+    "EnterPlanMode": "plan_mode", "ExitPlanMode": "plan_mode",
+    "EnterWorktree": "worktree", "ExitWorktree": "worktree",
+    "Task": "subagent", "Agent": "subagent",
+    "mcp": "mcp", "WebSearch": "web", "WebFetch": "web", "LSP": "lsp",
+}
+ALL_CAPS = ("plan_mode", "subagent", "worktree", "mcp", "web", "lsp")
+HIGH_TURN = 40  # session size that warrants subagent/plan-mode nomination
+THRASH_MIN_FAILS = 3     # a category needs this many failures to count as "stuck"
+THRASH_RATIO = 0.6       # failures/(failures+successes) above this = going in circles
+
 
 def parse_ts(value):
     """Accept both legacy UTC ('...Z') and local-offset ('...+0300') stamps."""
@@ -86,13 +98,30 @@ def shape_of(key, entries):
             waves += 1
 
     counts = {}
-    categories = {}
+    fail_cat = {}     # tool_failure by category
+    ok_cat = {}       # tool_success by category (the failure-ratio denominator)
+    caps = set()      # capabilities demonstrably used this session
+    effort = ""
+    pmode = ""
     for e in entries:
         ev = str(e.get("event", "unknown"))
         counts[ev] = counts.get(ev, 0) + 1
-        if e.get("category"):
-            categories[str(e["category"])] = categories.get(str(e["category"]), 0) + 1
+        cat = str(e.get("category", "")) if e.get("category") else ""
+        if ev == "tool_failure" and cat:
+            fail_cat[cat] = fail_cat.get(cat, 0) + 1
+        elif ev == "tool_success" and cat:
+            ok_cat[cat] = ok_cat.get(cat, 0) + 1
+        elif ev == "tool_use":
+            lab = CAP_MAP.get(str(e.get("tool", "")))
+            if lab:
+                caps.add(lab)
+        elif ev == "session_start":
+            if e.get("effort"):
+                effort = str(e["effort"])
+            if e.get("pmode"):
+                pmode = str(e["pmode"])
 
+    categories = fail_cat  # back-compat name used below (bursts, output)
     bursts = []
     for cat in categories:
         fails = [e["_ts"] for e in entries
@@ -114,7 +143,11 @@ def shape_of(key, entries):
         "duration_minutes": round((times[-1] - times[0]).total_seconds() / 60, 1),
         "activity_waves": waves,
         "events": counts,
-        "failure_categories": categories,
+        "failure_categories": fail_cat,
+        "success_categories": ok_cat,
+        "capabilities_used": sorted(caps),
+        "effort": effort,
+        "pmode": pmode,
         "failure_bursts": bursts,
         "friction_events": sum(n for ev, n in counts.items() if ev in FRICTION_EVENTS),
         "_start": times[0], "_end": times[-1],
@@ -166,6 +199,80 @@ def main():
     active = [s for s in shapes if s["events"].get("turn", 0) > 0 or s["friction_events"] > 0]
     total_friction = sum(s["friction_events"] for s in shapes) + len(manual_notes)
     total_turns = sum(s["events"].get("turn", 0) for s in shapes)
+
+    # ---- capability coverage: did the user reach for each lever at all? ----
+    cap_sessions = {c: 0 for c in ALL_CAPS}
+    for s in shapes:
+        for c in s["capabilities_used"]:
+            cap_sessions[c] = cap_sessions.get(c, 0) + 1
+    capabilities = {c: {"used": cap_sessions[c] > 0, "sessions": cap_sessions[c]} for c in ALL_CAPS}
+
+    # ---- failure ratio per category (heavy productive day != bad day) ----
+    fail_tot, ok_tot = {}, {}
+    for s in shapes:
+        for cat, n in s["failure_categories"].items():
+            fail_tot[cat] = fail_tot.get(cat, 0) + n
+        for cat, n in s["success_categories"].items():
+            ok_tot[cat] = ok_tot.get(cat, 0) + n
+    failure_ratio = {}
+    for cat in set(fail_tot) | set(ok_tot):
+        f, o = fail_tot.get(cat, 0), ok_tot.get(cat, 0)
+        failure_ratio[cat] = {
+            "failures": f, "successes": o,
+            "ratio": round(f / (f + o), 2) if (f + o) else None,
+        }
+
+    # ---- effort + permission-mode distribution across sessions ----
+    effort_dist = {}
+    pmode_dist = {}
+    for s in shapes:
+        if s.get("effort"):
+            effort_dist[s["effort"]] = effort_dist.get(s["effort"], 0) + 1
+        if s.get("pmode"):
+            pmode_dist[s["pmode"]] = pmode_dist.get(s["pmode"], 0) + 1
+
+    # ---- warrant + absence: situations that called for a lever not used ----
+    # Nominations only — the coach still asks; never convict from these.
+    warrants = []
+    # habitual bypass is an S3 symptom to ASK about (may be a conscious container choice)
+    bypass = pmode_dist.get("bypassPermissions", 0)
+    if bypass:
+        warrants.append({"lever": "permission_tuning", "reason": "habitual_bypass",
+                         "bypass_sessions": bypass, "total_sessions": len(shapes)})
+    big = [s for s in shapes if s["events"].get("turn", 0) >= HIGH_TURN]
+    if big and not capabilities["subagent"]["used"]:
+        warrants.append({"lever": "subagent", "reason": "high_turn_sessions",
+                         "sessions": [s["session"] for s in big]})
+    if overlaps and not capabilities["worktree"]["used"]:
+        warrants.append({"lever": "worktree", "reason": "same_repo_overlap",
+                         "overlaps": len(overlaps)})
+    if big and not capabilities["plan_mode"]["used"]:
+        warrants.append({"lever": "plan_mode", "reason": "large_session_no_plan",
+                         "sessions": [s["session"] for s in big]})
+
+    # ---- thrash detection: sessions that went in circles (feeds /retro) ----
+    # SHAPE only — never a read of prompt quality. A session looks stuck when it
+    # burst-failed, OR was large AND a category kept failing (high ratio, >=3 fails).
+    # Compactions strengthen the read but never trigger alone (lunch breaks compact).
+    thrash_sessions = []
+    for s in shapes:
+        turns = s["events"].get("turn", 0)
+        compacts = s["events"].get("compact", 0)
+        bursts = s["failure_bursts"]
+        worst = None
+        for cat, f in s["failure_categories"].items():
+            if f < THRASH_MIN_FAILS:
+                continue
+            o = s["success_categories"].get(cat, 0)
+            r = f / (f + o)
+            if r >= THRASH_RATIO and (worst is None or r > worst["ratio"]):
+                worst = {"category": cat, "failures": f, "successes": o, "ratio": round(r, 2)}
+        if bursts or (turns >= HIGH_TURN and worst):
+            thrash_sessions.append({
+                "session": s["session"], "projects": s["projects"],
+                "turns": turns, "compacts": compacts,
+                "bursts": bursts, "stuck_category": worst,
+            })
     print(json.dumps({
         "window_days": days,
         "sessions": shapes,
@@ -184,6 +291,12 @@ def main():
             "friction_per_active_session":
                 round(total_friction / (len(active) or len(shapes) or 1), 2),
         },
+        "capabilities": capabilities,
+        "failure_ratio": failure_ratio,
+        "effort_distribution": effort_dist,
+        "pmode_distribution": pmode_dist,
+        "unused_lever_warrants": warrants,
+        "thrash_sessions": thrash_sessions,
     }, ensure_ascii=False, indent=2))
 
 

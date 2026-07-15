@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
-"""Agentwright friction collector (called by collect-friction.sh).
+"""Agentwright signal collector (called by collect-friction.sh).
 
 Reads the hook JSON from stdin (no size limits, unlike env vars), appends ONE
 minimal JSONL line to a per-day-per-session pending file.
 
 Privacy contract (Anthropic Software Directory Policy §1.D/§1.F):
-  - records only: event kind, tool name, a locally derived failure CATEGORY,
-    project basename, timestamp
+  - records only: event kind, a SAFE tool label, a locally derived category,
+    project basename, effort level, timestamp
   - command text is used transiently to derive the category and never stored
+  - MCP tool names are collapsed to "mcp" — server names may embed private infra
+  - never reads transcripts, prompts, tool outputs
+
+Events (argv[1]):
+  friction   : tool_failure, permission_denied, compact, manual
+  denominator: turn, stop, permission_request
+  capability : tool_success (tracked categories only), tool_use (landscape tools),
+               subagent, worktree, task, session_start (carries effort)
 
 Never breaks the session: swallows every error, exits 0.
 """
@@ -31,6 +39,26 @@ CLASSES = [
     ("git",     r"(^|&&|;)\s*git\b"),
 ]
 
+# events whose Bash command should be classified into a category
+CLASSIFY = ("tool_failure", "tool_success")
+
+
+def safe_tool(name):
+    """A tool label safe to persist. Built-in tool names are Claude Code's own
+    vocabulary (safe); mcp__<server>__<tool> embeds a user-chosen server name
+    that may be private infra — collapse to a bare 'mcp'."""
+    name = str(name)
+    if name.startswith("mcp__"):
+        return "mcp"
+    return name[:40]
+
+
+def classify(command):
+    for name, pattern in CLASSES:
+        if re.search(pattern, command):
+            return name
+    return "other"
+
 
 def main():
     try:
@@ -41,16 +69,26 @@ def main():
     event = (sys.argv[1] if len(sys.argv) > 1 else "unknown")[:30]
     session = re.sub(r"[^a-zA-Z0-9-]", "", str(data.get("session_id", "nosession")))[:12] or "nosession"
     project = os.path.basename(str(data.get("cwd", "")).rstrip("/"))[:40] or "unknown"
-    tool = str(data.get("tool_name", ""))[:40]
+    tool = safe_tool(data.get("tool_name", ""))
 
     category = ""
-    if event == "tool_failure" and tool == "Bash":
-        command = str((data.get("tool_input") or {}).get("command", ""))
-        category = "other"
-        for name, pattern in CLASSES:
-            if re.search(pattern, command):
-                category = name
-                break
+    if event in CLASSIFY and tool == "Bash":
+        category = classify(str((data.get("tool_input") or {}).get("command", "")))
+
+    # tool_success is only interesting as a per-category DENOMINATOR for the
+    # failure ratio; "other" successes (every ls/cat) are pure noise — drop them.
+    if event == "tool_success" and category in ("", "other"):
+        return
+
+    effort = ""
+    pmode = ""
+    if event == "session_start":
+        lvl = (data.get("effort") or {}).get("level")
+        if isinstance(lvl, str):
+            effort = lvl[:10]
+        pm = data.get("permission_mode")
+        if isinstance(pm, str):
+            pmode = pm[:20]
 
     now = datetime.now().astimezone()  # local time, one clock for ts AND file date
     line = {"v": 1, "ts": now.strftime("%Y-%m-%dT%H:%M:%S%z"), "event": event, "project": project}
@@ -58,6 +96,10 @@ def main():
         line["tool"] = tool
     if category:
         line["category"] = category
+    if effort:
+        line["effort"] = effort
+    if pmode:
+        line["pmode"] = pmode
 
     pending = os.path.expanduser("~/.claude/agentwright/pending")
     os.makedirs(pending, exist_ok=True)

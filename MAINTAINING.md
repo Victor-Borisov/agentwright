@@ -46,12 +46,26 @@ references, bump versions per the table above.
 4. `skills/coach/SKILL.md` — add a row to the journal vocabulary table (friction /
    rate signal / denominator).
 5. `scripts/session_shapes.py` — nothing to do (event-agnostic) unless the event
-   should join `FRICTION_EVENTS` for normalized totals.
+   should join `FRICTION_EVENTS` for normalized totals, `CAP_MAP` for capability
+   presence, or a new aggregate (`failure_ratio`, `effort_distribution`,
+   `unused_lever_warrants`).
 6. `scripts/collect_friction.py` — extend `CLASSES` only if the event carries a
-   classifiable Bash command; the .sh is a thin wrapper and needs no change.
-7. Docs (all of them): README "Friction journal" bullet + the `#day` flow node and
+   classifiable Bash command. For capability events, add the tool to the landscape
+   matcher in hooks.json and a label to `CAP_MAP`; the .sh is a thin wrapper.
+7. `scripts/scan_artifacts.py` — mirror any new journal aggregate the `/score` skill
+   needs (it reads scan output, not session_shapes) — e.g. `capabilities_used`.
+8. Docs (all of them): README "Signal journal" bullet + the `#day` flow node and
    privacy "Reads" list in BOTH `docs/index.html` AND `docs/index.ru.html`.
-8. Test with a synthetic stdin JSON (see the Testing section below).
+9. Test with a synthetic stdin JSON (see the Testing section below).
+
+**Two hard rules for new signals.** (a) PRIVACY: persist only a derived category, a
+safe tool label, or a counter — never raw text; MCP tool names (`mcp__server__tool`)
+MUST collapse to `mcp` (server names are private infra, like the work repo names that
+once leaked). (b) COST: `PostToolUse` on `Bash` fires on every successful shell
+command — it is the one high-volume hook. Keep its handler trivial (classify +
+append), drop `other`-category successes (noise), and remember a user bothered by
+latency can delete just that one hook entry. Never subscribe a BLOCKING hook
+(`PreToolUse`, `WorktreeCreate`, `PostToolBatch`) for mere logging.
 
 ## Testing before release
 

@@ -11,13 +11,27 @@ and always explains why. Top band: **Agent Architect**.
 
 ## What it does
 
-- **Friction journal** — the plugin's own hooks quietly log minimal signals: Bash
-  tool failures with a locally derived category (test / lint / build / install / git /
-  other), permission prompts and denials, context compactions, and turn/session
-  markers as activity denominators. Only event kind, tool name, category, project name
-  and timestamp are stored — never command text, prompts, or outputs.
+- **Signal journal** — the plugin's own hooks quietly log minimal metadata so it can
+  diagnose, not just count pain: Bash failures **and successes** with a locally derived
+  category (test / lint / build / install / git — so a failure *ratio* exists, not a
+  raw count that punishes a busy day); permission prompts and denials; context
+  compactions; which capability levers you reach for (plan mode, subagents, worktrees,
+  MCP, web, LSP — the tool name only); the session effort level and permission mode
+  (habitual `bypassPermissions` is worth surfacing); and turn/session markers as
+  denominators. Only event kind, a safe tool label, category, project name,
+  effort level, permission mode and timestamp are stored — never command text, prompts, or outputs, and
+  MCP server names are collapsed to `mcp` so private infra names never land in the
+  journal.
 - **`/agentwright:log`** — capture a friction note in your own words the moment
   something annoys you; the highest-signal input for the next review.
+- **`/agentwright:retro`** — stuck retrospective. When a session went in circles
+  (the plugin detects the *shape* — a failure burst, or a big session with a category
+  stuck at a high failure ratio — never your prompts), it helps you find the *upstream*
+  fix from what you tell it: was the target fuzzy, was there no plan, was it too big,
+  stale context, patching-the-patch, or a missing guarantee? Lands one lever and
+  records it so the next coach run verifies your thrashing actually dropped. It never
+  grades your prompting — that's off-limits by design; you bring the story, it brings
+  the playbook.
 - **Morning reminder** — a fast SessionStart check: if unreviewed friction accumulated
   since your last review, you get one line suggesting `/agentwright:coach`. Silent
   otherwise.

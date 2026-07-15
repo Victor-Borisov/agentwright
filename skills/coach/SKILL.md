@@ -25,17 +25,23 @@ plugin's own hooks), `scorecard.json`, `flags/reviewed-YYYY-MM-DD`.
 
 ## Journal vocabulary
 
-Each JSONL line: `{v, ts, event, project, tool?, category?, note?}`.
+Each JSONL line: `{v, ts, event, project, tool?, category?, note?, effort?}`.
 
 | event | Meaning | Role |
 |---|---|---|
 | `tool_failure` | A tool call failed; for Bash, `category` ∈ test/lint/build/install/git/other | friction |
+| `tool_success` | A Bash call SUCCEEDED in a tracked category — the denominator for `failure_ratio` (busy day ≠ bad day) | rate denominator |
+| `tool_use` | A landscape lever was used; `tool` → capability (plan_mode/subagent/worktree/mcp/web/lsp) | capability signal (credit + absence) |
+| `session_start` | Session began; carries `effort` level and `pmode` (permission mode) | effort signal (O11); `pmode` → habitual `bypassPermissions` is an S3 symptom to ask about |
 | `permission_denied` | Denied by the AUTO-mode classifier only — users in default mode clicking "No" produce NO event; treat absence as no-signal, not as no-denials | friction |
 | `compact` | Context was compacted mid-session | friction |
 | `manual` | User-authored note (via /agentwright:log) — their own words in `note` | friction, highest signal |
 | `permission_request` | Permission dialog shown | rate signal: high rate = tuning friction (L4) |
 | `turn` | User submitted a prompt | denominator |
 | `stop` | A response cycle ended | denominator / session activity |
+
+`session_shapes.py` turns these into `capabilities`, `failure_ratio`,
+`effort_distribution`, and `unused_lever_warrants` — read those, don't re-derive.
 
 **Always normalize per 100 turns** (`totals.friction_per_100_turns`). Raw counts lie
 when activity varies, and per-SESSION rates lie worse: session count is a behavior
@@ -113,8 +119,26 @@ Pain detectors only catch what hurts; this step catches what silently costs. Mat
 the session shapes against `${CLAUDE_PLUGIN_ROOT}/references/opportunities.md`
 (long multi-wave sessions WITH a compaction → session splitting; overlapping
 sessions in one project → worktrees; huge-turn sessions → subagents; failure bursts
-→ rewind; recurring themes → a skill). Hard rules from that file: **nominate, never
-convict** (show the evidence, ask); **at most 1–2 candidates per run**; **check
+→ rewind; recurring themes → a skill; large session without plan mode → plan mode;
+uniform effort across mixed tasks → effort tuning; configured-but-unused MCP).
+
+**Use the precomputed signals.** `session_shapes.py` now emits `unused_lever_warrants`
+(warrant + absence, already checked against the `capabilities` map), `failure_ratio`
+(a category with high failures BUT high successes is a busy day, not a broken lever —
+weight nominations by ratio, not raw failure count), `effort_distribution`, and
+`capabilities` (what the user demonstrably used). A warrant fires only when the lever
+was NOT used — never nominate a lever `capabilities` shows in active use; instead note
+it as confirmed landscape for the next `/score`.
+
+**Thrash → point to `/retro`.** If `thrash_sessions` is non-empty, a session went in
+circles (burst, or a large session with a category stuck at a high failure ratio).
+Do NOT try to diagnose the cause here from metadata — the cause lives in what the user
+did, which needs their account. Surface it once and hand off: "Session X looks like it
+looped (a 4-failure test burst, ratio 0.83). Want to run `/agentwright:retro` on it? —
+it finds the upstream fix from what you tell it, without reading your prompts." The
+retrospective owns that flow (`references/thrash.md`); the coach only flags it.
+
+Hard rules: **nominate, never convict** (show the evidence, ask); **at most 1–2 candidates per run**; **check
 `scorecard.opportunities[]` first** — a `dismissed` entry is re-asked only when its
 recorded dismissal REASON is invalidated by new evidence (not by raw amplitude);
 every asked candidate gets recorded as `adopted` / `taught` / `dismissed`

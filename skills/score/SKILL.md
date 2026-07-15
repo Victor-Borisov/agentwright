@@ -87,6 +87,14 @@ Rules:
 - Ask **situationally**, never as definitions. Good: "Your journal shows repeated Bash
   failures after edits — what would you reach for, and why?" Bad: "What is a hook?"
 - If the friction journal has events, use a real one as the D1 scenario.
+- **Credit observed capabilities without asking** (checklist § D, scoring.md
+  § Capability signals). `facts.friction_journal.capabilities_used` lists levers the
+  journal shows in ACTIVE USE: `plan_mode` → D2 landscape, `subagent`/`worktree` →
+  D4/D6, `mcp` → C3/landscape. For those, credit the landscape half from the signal
+  and probe only judgment; skip the mastery captcha for a lever shown in use. Only
+  MODEL choice (D5's model half) and multi-model orchestration stay pure dialog —
+  model never appears in metadata. Use `effort_levels`/`effort_distribution` for the
+  effort half of D5.
 - For every artifact-absent item, ask whether it's a deliberate choice. Apply the
   conscious-refusal quality bar from checklist.md strictly, INCLUDING journal
   consistency (scoring.md): a refusal contradicted by observed friction of the

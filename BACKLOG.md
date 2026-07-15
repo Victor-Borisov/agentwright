@@ -197,12 +197,62 @@ are fixed.
   credit/cap math changed → knowledge_version stays 3 (presentation + re-nag behavior
   only).
 
+## Done in v0.9.0 (widen the aperture — detectors from more hook events, 2026-07-15)
+
+Step 0 (non-negotiable) verified the hook API on current CC BEFORE building: `model`
+is NOT in any hook payload (only the transcript, which is off-limits) — so
+model-per-task stays dialog-only; `effort.level` IS in the payload, `tool_name` is in
+every tool hook. Built on facts, not the guessed `model` field.
+
+- [x] **[MAJOR] Log tool successes per category** — now collected via `PostToolUse`
+  (matcher `Bash`, event `tool_success`); `other`-category successes dropped as noise.
+  `session_shapes.py` + `scan_artifacts.py` emit `failure_ratio` per category, so a
+  busy productive day (high failures AND high successes) is no longer read as a bad one.
+- [x] **[MAJOR] Dialog-only levers made observable** — subscribed to `PostToolUse` for
+  the landscape tools (EnterPlanMode/ExitPlanMode, Task/Agent, EnterWorktree, mcp__*,
+  WebSearch/WebFetch, LSP) → journal `capabilities_used`; plan mode (O10), subagent
+  (O3), worktree (O2), MCP-use, effort-per-task (O11, from `effort.level`) are now
+  detected, not just asked. New "warrant + absence" detector shape
+  (`unused_lever_warrants`): a lever is nominated only when a situation warranted it
+  AND `capabilities` shows it unused. Positive side: observed use CREDITS landscape in
+  `/score` without asking and skips the mastery captcha. New O12: configured-but-unused
+  MCP. knowledge_version 3 → 4; D2/D4/D5/D6 rows gained signals.
+- [x] Privacy: MCP tool names collapse to `mcp` (server names are private infra);
+  effort level added to the declared journal schema in README + both docs.
+- [x] `permission_mode` captured at `session_start` (free payload field, like effort) →
+  `pmode_levels`/`pmode_distribution`; habitual `bypassPermissions` is an OBSERVED S3
+  symptom the coach asks about (may be a conscious isolated-container choice → refusal,
+  not a finding). Deliberately NOT built into signals: review commands (`/code-review`,
+  `/security-review`) and launch modes (`-p`, `--output-format`, CI) — their absence is
+  not friction-with-a-trace (bugs surface in CI/prod, not our journal); they stay
+  dialog/artifact-scan. Those dashes are correct, not gaps.
+- [x] Cost/safety: only non-blocking `PostToolUse`/`SessionStart` hooks added; the one
+  high-volume hook (Bash success) is documented as removable; no blocking hook used for
+  logging. Known limit: worktree/subagent started via a CLI flag (not the in-session
+  tool) leaves no `tool_use` trace — acceptable, coaching cares about in-session use.
+
+## Done in v0.10.0 (help with thrashing without reading prompts, 2026-07-15)
+
+Addresses the deepest known gap — prompt/approach quality is unmeasurable by policy
+(§1.F, no transcript access) — WITHOUT faking a proxy. The plugin can't read prompts,
+but "going in circles" leaves a SHAPE it can see (`failure_ratio` from v0.9.0 separates
+stuck from busy).
+
+- [x] **[MAJOR] Thrash detection + stuck retrospective** — `session_shapes.py` emits
+  `thrash_sessions` (a failure burst, OR a large session with a category stuck at
+  ratio ≥ 0.6 with ≥ 3 failures; compaction strengthens, never triggers alone). New
+  `/agentwright:retro` skill: reflects the SHAPE non-judgmentally, asks ONE open
+  question ("what were you doing, where did it loop?"), takes the user's judgment
+  first, maps their account to a 6-cause taxonomy (`references/thrash.md`: ambiguous
+  target / no plan / too big / stale context / patching-the-patch / wrong lever),
+  lands ONE upstream lever, records it in `actions[]` with a thrash-rate expected
+  effect so Step 0 verifies. Coach Step 1b flags thrash and hands off to `/retro`.
+  Hard line: the prompt is NEVER graded — the plugin measures shape and coaches from
+  what the user volunteers; policy-safe because the user brings the content.
+  knowledge_version 4 → 5.
+
 ## Open — candidates for v0.5+ (need real usage data or bigger design)
 
-- [ ] **[MAJOR] Log tool successes per category** (counts only, no content) so a failure
-  *ratio* exists — a heavy productive day is currently indistinguishable from a bad one.
-  Needs a new signal source: PostToolUse success isn't a current hook event we collect;
-  investigate whether a lightweight success counter is worth the per-turn cost.
 - [ ] **[MAJOR] Academy module map** — the score skill demands "a specific module," but no
   module index ships → hallucinated names. Build a versioned `references/academy.md`
   map + a scorecard field for completed modules to skip. Until then, the skill should
