@@ -91,6 +91,14 @@ Rules:
   conscious-refusal quality bar from checklist.md strictly, INCLUDING journal
   consistency (scoring.md): a refusal contradicted by observed friction of the
   matching category caps at `partial` and must be challenged out loud.
+- **Blocked-on-others (scoring.md § Growth vs blocked-on-others).** When a gap needs
+  an action the user cannot take themselves and they have already raised it (escalated
+  to a lead/DBA, filed or been unable to file a ticket), that is the terminal mature
+  state — record it in `scorecard.blocked_external[]` (item, action, owner,
+  escalated_on, optional reminded_on) and DO NOT re-ask it or list it as growth on this
+  or any future run. A second or third nag is not higher maturity; the escalation
+  already earned the credit. It caps only project readiness, never the user, and never
+  re-surfaces unless the blocker's owner acts or the user says the situation changed.
 - `scorecard.opportunities[]` entries mean the lever is KNOWN (`dismissed` and
   `taught` alike) — that informs the landscape reading, but full refusal credit is
   minted only here, in this dialog, under the full bar. Do not credit a coach
@@ -148,16 +156,26 @@ Report structure:
 3. **Axes breakdown** — landscape / judgment / oversight / outcome, one line each on
    what drove it.
 4. **What earned credit** — including conscious refusals, named as maturity.
-5. **Growth items — up to 3, never padded.** Each must be a real, currently actionable
-   gap: the concrete gap and the lever to learn, framed as the next practical task in
-   the user's own repo. If more than 3 exist, show the top 3 by impact and say how many
-   remain. If fewer exist, show fewer; with zero, say so plainly — "no actionable gaps
-   in the assessed items" is a valid, strong result. Scheduling notes ("next run will
-   assess E items") are NOT growth items — mention them separately in one line. If — and only if — you can name a
-   real, current Anthropic Academy module that fits (anthropic.skilljar.com), link it;
-   NEVER invent a module name. When unsure, give the practical repo task alone. (A
-   verified module map is a backlog item; until it ships, the repo task is the reliable
-   half.)
+5. **Growth items — up to 3, never padded, USER-ACTIONABLE ONLY** (scoring.md § Growth
+   vs blocked-on-others). Each must be a real gap the user can close **by their own
+   hand** — a lever to learn, a config to change, a task in their own repo. A gap whose
+   only remaining action belongs to someone else (a DBA must grant a role, a lead must
+   approve a team `.gitignore`, a ticket the user cannot open) is **NOT a growth item**
+   and must never be listed as one — telling a user to "grow" by nagging a colleague a
+   third time is a defect, not coaching. Such blockers go in a SEPARATE line, "Blocked
+   on others (already escalated — not your growth)", shown as status at most once, never
+   as a to-do, never re-raised (see escalation handling below). If more than 3
+   user-actionable items exist, show the top 3 and say how many remain. If fewer,
+   show fewer; **zero is a valid, strong result** — "no personal gaps in the assessed
+   items; the remaining caps are organizational and you've already escalated them" is
+   a complete answer, not an emptiness to pad. Scheduling notes ("next run assesses E
+   items") are also not growth items — one separate line. If — and only if — a real,
+   current Anthropic Academy module fits (anthropic.skilljar.com), link it; NEVER
+   invent a module name; when unsure, the practical repo task alone.
+5b. **Blocked on others (only if `blocked_external[]` is non-empty)** — a short status
+   list, NOT growth: "Escalated, awaiting owner: read-only DB login (DBA, raised
+   2026-07-01, reminded 2026-07-08)." Frame it as done on the user's part. Never a
+   to-do, never "remind them again".
 6. One line: "Run /agentwright:coach to work the friction journal; the score updates
    as verified fixes land."
 

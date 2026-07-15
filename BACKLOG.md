@@ -169,6 +169,34 @@ are fixed.
   environmental. S5 rescoped like S2 (user artifacts cap user; DB privilege caps
   project). knowledge_version 2 → 3.
 
+## Done in v0.8.1 (staying current, 2026-07-14)
+
+- [x] **[MINOR] No update discovery for end users** — updates are pull-based and
+  auto-update is OFF by default for third-party marketplaces. Documented the one-time
+  auto-update toggle (`/plugin` → Marketplaces → Enable auto-update) in README + both
+  docs; noted the real hands-off path is the official `claude-community` catalog (CI
+  bumps the pin, auto-update default-on). session-start.sh now prints a one-time
+  "updated to vX — what changed" line after a genuine version change (detected via
+  plugin.json version vs a `state/plugin-version` marker; first run writes it
+  silently). Deliberately NOT built: an "upstream has a newer version" nudge — that
+  needs a network call, which the plugin forbids; the limit is stated plainly in the script.
+
+## Done in v0.8.2 (growth ≠ nagging — field find, 2026-07-14)
+
+- [x] **[MAJOR] Growth plan listed blockers the user cannot action** — repos capped by
+  an environmental S2/S5 gap (team `.gitignore`, DBA-granted DB privilege) surfaced the
+  fix as the user's "growth item" every run, so a user who had already escalated twice
+  was told to "grow" by nagging a lead a third time. A plan that measures the
+  colleague, not the user, is a defect. Fix: growth items are USER-ACTIONABLE ONLY;
+  a gap whose only remaining action belongs to someone else goes to a new
+  `scorecard.blocked_external[]` (item/action/owner/escalated_on/reminded_on/status),
+  is credited as the terminal mature action (escalation done), never re-asked, never
+  re-listed as growth, caps project readiness only. Zero user-actionable items is now
+  an explicit valid result ("no personal gaps; the rest is organizational and already
+  escalated"). Coach Step 1b also refuses to re-raise a blocked_external item. No
+  credit/cap math changed → knowledge_version stays 3 (presentation + re-nag behavior
+  only).
+
 ## Open — candidates for v0.5+ (need real usage data or bigger design)
 
 - [ ] **[MAJOR] Log tool successes per category** (counts only, no content) so a failure

@@ -92,6 +92,13 @@ re-asked or re-treated. This also makes interrupted runs safe: if a previous cyc
 was abandoned after applying a fix, the next run recognizes the treated friction
 instead of proposing the same lever twice.
 
+A group whose only fix is blocked on someone else and already sits in
+`scorecard.blocked_external[]` (scoring.md § Growth vs blocked-on-others) is NOT
+re-raised. Do not propose "remind them again" as a lever — escalation was the mature
+action and it is done. Mention it once as status if relevant ("still blocked on the
+DBA login") and move on; it re-enters only if the user says the blocker cleared or
+changed.
+
 **Attribution before treatment.** Failure counts conflate three different things.
 For each new group ask ONE attribution question — "agent's mistake, environment
 (flaky infra, missing deps), or you deliberately iterating (red-green TDD)?" — and

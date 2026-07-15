@@ -73,6 +73,12 @@ Requirements: Claude Code, `bash`, `python3` (`git` and `gitleaks` improve probe
 
 (For local development instead: `claude --plugin-dir /path/to/agentwright`.)
 
+**Stay current — enable auto-update once:** `/plugin` → *Marketplaces* → select
+*agentwright* → *Enable auto-update*. New versions then arrive on session start
+(you'll be prompted to `/reload-plugins`); otherwise run `/plugin marketplace update
+agentwright` yourself when you want the latest. After an update lands, the plugin
+prints a one-line "updated to vX — what changed" note.
+
 **2. Get your baseline** — run `/agentwright:score`. A short dialog (~10 min) plus
 a deterministic scan of your setup produces your first score and a growth plan.
 The first run sticks to core items; effect-over-time items enter from run two.

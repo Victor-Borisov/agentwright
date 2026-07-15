@@ -31,6 +31,24 @@ if [ ! -f "${FLAG_DIR}/welcomed" ] && [ ! -f "${DATA_DIR}/scorecard.json" ]; the
   echo "Agentwright is installed. Get your baseline: run /agentwright:score (short dialog, ~10 min; it will first ask which language to speak with you). After that just work normally — friction is journaled automatically; when something annoys you, capture it with /agentwright:log."
 fi
 
+# ---------- 0b. one-time "what's new" after a plugin version change ----------
+# No network: the plugin path carries the version, so a changed
+# plugin.json version means an update landed. First-ever run writes the marker
+# silently (the welcome above already spoke); only a genuine version CHANGE
+# announces. We cannot detect that a NEWER version exists upstream without a
+# network call (forbidden) — this only reports updates the user already pulled.
+PVER_FILE="${STATE_DIR}/plugin-version"
+PLUGIN_JSON="${SCRIPT_DIR}/../.claude-plugin/plugin.json"
+NEW_PVER="$(grep -o '"version"[[:space:]]*:[[:space:]]*"[0-9][0-9.]*"' "$PLUGIN_JSON" 2>/dev/null | grep -o '[0-9][0-9.]*' | head -1)"
+if [ -n "$NEW_PVER" ]; then
+  OLD_PVER=""
+  [ -f "$PVER_FILE" ] && OLD_PVER="$(head -c 20 "$PVER_FILE" 2>/dev/null | tr -cd '0-9.')"
+  if [ "$OLD_PVER" != "$NEW_PVER" ]; then
+    mkdir -p "$STATE_DIR" 2>/dev/null && printf '%s' "$NEW_PVER" > "${PVER_FILE}.tmp" 2>/dev/null && mv -f "${PVER_FILE}.tmp" "$PVER_FILE" 2>/dev/null
+    [ -n "$OLD_PVER" ] && echo "Agentwright updated to v${NEW_PVER}. What changed: https://github.com/Victor-Borisov/agentwright/blob/main/BACKLOG.md"
+  fi
+fi
+
 # ---------- 1. background version refresh (at most once per day) ----------
 if [ ! -f "${STATE_DIR}/version-checked-${TODAY}" ] && command -v claude >/dev/null 2>&1; then
   mkdir -p "$STATE_DIR" 2>/dev/null && : > "${STATE_DIR}/version-checked-${TODAY}" 2>/dev/null

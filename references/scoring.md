@@ -173,7 +173,8 @@ only lever available to a developer without commit rights to `.gitignore`. For
 PROJECT readiness, only `committed` coverage counts in full: an ignore that lives
 on one machine does not protect the rest of the team, so the project cap stands,
 reported as "covered on this machine; team-level `.gitignore` still missing" — and
-the pending team fix is exactly the kind of escalation the growth plan should name. The security gate
+the pending team fix, once the user has raised it, is a blocked-on-others item (see
+below), not a personal growth item. The security gate
 always caps the project score; it caps the USER score only when the finding lives in
 user-level config or user-authored artifacts. (Rationale: an inherited legacy repo's
 old secret describes the repo's past, not the user's maturity — and a certifiable
@@ -187,8 +188,27 @@ environment (a DB login granted `db_owner`/`sa` by a DBA the user cannot overrul
 that privilege is a project/environment fact: it caps project readiness, while the
 user keeps full credit for having built a guard at all. Report it as "guard present
 but bypassable (your MCP — fixable); underlying DB privilege is environmental
-(escalate to DBA)", and put both layers in Step 0 — fix the validator AND request a
-read-only login.
+(escalate to DBA)". Step 0 lists the layer the user CAN do (fix the validator); the
+DBA layer, once raised, is blocked-on-others, not a repeated to-do.
+
+## Growth vs blocked-on-others
+
+A growth item is something the user can close **by their own hand**: a lever to learn,
+a config or artifact to change, a task in their own repo. A gap whose only remaining
+action belongs to someone else — a DBA must grant a role, a lead must approve a
+team-owned file, a ticket the user is not allowed to open — is NOT a growth item and
+must never be presented as one. A plan that tells the user to "grow" by asking a
+colleague a third time has stopped measuring the user and started measuring the
+colleague; that is a defect.
+
+Escalation is the terminal mature action for such a blocker. Once the user has raised
+it (to a lead, a DBA, a ticket queue — or reports they are structurally unable to),
+that credit is earned and fixed; a second or third reminder is not a higher level.
+Record it in `blocked_external[]` and never re-ask or re-list it. It caps project
+readiness only (the risk is real for the repo), never the user, and re-surfaces only
+if the owner acts or the user says the situation changed. When every remaining cap is
+a blocked-on-others item, the correct growth section is: "no personal gaps right now;
+the rest is organizational and already escalated" — a strong result, not a void to pad.
 
 ## Scorecard persistence
 
@@ -218,6 +238,11 @@ Write `~/.claude/agentwright/scorecard.json` after every scoring run:
     {"id": "O1-session-splitting", "status": "dismissed", "date": "2026-07-03",
      "note": "single long-running research task; waves are lunch breaks"}
   ],
+  "blocked_external": [
+    {"item": "S5-db-privilege", "action": "read-only DB login (db_datareader + scoped GRANT EXECUTE)",
+     "owner": "DBA / team lead", "escalated_on": "2026-07-01", "reminded_on": "2026-07-08",
+     "status": "awaiting"}
+  ],
   "levers": {"L1": "adopted", "L4": "taught", "O2": "never_discussed"},
   "mastery": {"guarantee-levers": 3},
   "history": [{"date": "2026-07-02", "score": 72, "checklist_version": 1,
@@ -230,6 +255,10 @@ Write `~/.claude/agentwright/scorecard.json` after every scoring run:
 - `opportunities[]` is the contract for Step 1b: `adopted` / `taught` / `dismissed`.
   For scoring, `dismissed` = the lever is known (`taught`); refusal credit is minted
   only in the score dialog.
+- `blocked_external[]` records gaps the user has escalated but cannot close
+  themselves (see § Growth vs blocked-on-others). Once here, an item is never a growth
+  item and is never re-asked; it caps project readiness only, and clears when the owner
+  acts or the user reports a change. Preserve it across runs like `actions[]`.
 - `levers{}` is the coverage map (never_discussed / taught / adopted / dismissed) —
   it drives what the coach teaches when there is no friction (see coach Step 1b).
 - `mastery{}` counts consecutive correct Step-2 picks per lever class — it drives
