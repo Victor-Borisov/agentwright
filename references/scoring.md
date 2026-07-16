@@ -210,6 +210,45 @@ if the owner acts or the user says the situation changed. When every remaining c
 a blocked-on-others item, the correct growth section is: "no personal gaps right now;
 the rest is organizational and already escalated" — a strong result, not a void to pad.
 
+## Confidence grading and contradiction
+
+Every finding carries a confidence grade so the coach orders and paces its
+nominations instead of firing on any signal. `session_shapes.py` computes a
+deterministic base grade (from evidence density); the coach/retro/score layer may
+refine it (a `/log` note upgrades; a user claim can flip it to `contradicted`).
+
+**The four grades and what they do:**
+- **strong** — dense evidence from ≥2 sources → propose the lever confidently (still
+  ask the user's judgment first).
+- **medium** — a pattern from one source → nominate as "looks like…", then ask.
+- **weak** — a proxy signal that could be innocent → **do NOT nominate as a problem.**
+  Hold it; it graduates to medium when it recurs (a second session crosses
+  `STRONG_MIN_SESSIONS`). On a no-friction run only, a weak signal may seed the "teach
+  one lever" slot — framed as landscape teaching, never as "you have an issue."
+- **contradicted** — a user claim is directly negated by the journal → do NOT nominate
+  or accept; pause and ask one clarifying question; record nothing until resolved.
+
+**Base grade (deterministic, in `session_shapes.py`):** friction category — strong if
+it recurs in ≥2 sessions AND `ratio ≥ 0.6`; medium if it recurs in ≥2 sessions, or one
+session but ≥3 failures at `ratio ≥ 0.6`; weak otherwise. Warrants and `thrash_sessions`
+carry their own `confidence` (see the script). The coach nominates at most 1–2 per run,
+**highest confidence first**, and never spends the budget on weak while a strong/medium
+is unaddressed.
+
+**Upgrade on a note (coach layer):** if a `/log` note in the user's own words names the
+same category/theme, raise one tier (weak→medium→strong, cap strong) — the user's own
+flag is strong corroboration. Note text is read only by the LLM layer, never persisted.
+
+**Contradiction (coach/retro/score layer)** — grounded in HARD signals, so it protects
+against an inaccurate self-report without becoming a nitpick:
+- a refusal of a lever for category C, but C recurs with real failures (this is the
+  existing journal-consistency rule, now named `contradicted`);
+- a claim "X keeps/always fails" but `failure_ratio[X].ratio < CONTRADICT_RATIO` (0.3 —
+  mostly succeeds);
+- a claim "I always/usually use lever L" but `capabilities[L].used == false`.
+The response is never to override or accept silently — surface the conflict and ask
+which sessions the user means; decide nothing until they clarify.
+
 ## Scorecard persistence
 
 Write `~/.claude/agentwright/scorecard.json` after every scoring run:
@@ -232,6 +271,7 @@ Write `~/.claude/agentwright/scorecard.json` after every scoring run:
   "actions": [
     {"friction": "test failures repeat across sessions", "lever": "L1 PostToolUse test hook",
      "date": "2026-07-02", "expected": "tool_failure/test rate per 100 turns drops in shop-api",
+     "confidence": "strong", "evidence": "test failed in 3 sessions, ratio 0.7, plus a /log note",
      "verified": null, "mechanism": null, "outcome": null}
   ],
   "opportunities": [

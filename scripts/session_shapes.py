@@ -40,6 +40,8 @@ ALL_CAPS = ("plan_mode", "subagent", "worktree", "mcp", "web", "lsp")
 HIGH_TURN = 40  # session size that warrants subagent/plan-mode nomination
 THRASH_MIN_FAILS = 3     # a category needs this many failures to count as "stuck"
 THRASH_RATIO = 0.6       # failures/(failures+successes) above this = going in circles
+STRONG_MIN_SESSIONS = 2  # recurs in >=2 sessions = a cross-session pattern (strong)
+CONTRADICT_RATIO = 0.3   # a "keeps failing" claim below this ratio is contradicted (LLM layer)
 
 
 def parse_ts(value):
@@ -207,11 +209,12 @@ def main():
             cap_sessions[c] = cap_sessions.get(c, 0) + 1
     capabilities = {c: {"used": cap_sessions[c] > 0, "sessions": cap_sessions[c]} for c in ALL_CAPS}
 
-    # ---- failure ratio per category (heavy productive day != bad day) ----
-    fail_tot, ok_tot = {}, {}
+    # ---- failure ratio + per-category recurrence (busy day != bad day) ----
+    fail_tot, ok_tot, cat_sessions = {}, {}, {}
     for s in shapes:
         for cat, n in s["failure_categories"].items():
             fail_tot[cat] = fail_tot.get(cat, 0) + n
+            cat_sessions[cat] = cat_sessions.get(cat, 0) + 1  # sessions where cat failed
         for cat, n in s["success_categories"].items():
             ok_tot[cat] = ok_tot.get(cat, 0) + n
     failure_ratio = {}
@@ -222,6 +225,23 @@ def main():
             "ratio": round(f / (f + o), 2) if (f + o) else None,
         }
 
+    # ---- confidence grade per failing category (evidence density) ----
+    # strong: recurs in >=2 sessions AND stuck (ratio>=0.6). medium: recurs in >=2,
+    # OR one session but clearly stuck. weak: single/low-ratio (may be a busy day).
+    # The coach may UPGRADE one tier when a /log note corroborates (semantic, not here).
+    friction_confidence = {}
+    for cat in fail_tot:
+        n = cat_sessions.get(cat, 0)
+        r = failure_ratio[cat]["ratio"]
+        rr = r if r is not None else 1.0
+        f = fail_tot[cat]
+        if n >= STRONG_MIN_SESSIONS and rr >= THRASH_RATIO:
+            friction_confidence[cat] = "strong"
+        elif n >= STRONG_MIN_SESSIONS or (n == 1 and f >= THRASH_MIN_FAILS and rr >= THRASH_RATIO):
+            friction_confidence[cat] = "medium"
+        else:
+            friction_confidence[cat] = "weak"
+
     # ---- effort + permission-mode distribution across sessions ----
     effort_dist = {}
     pmode_dist = {}
@@ -230,25 +250,6 @@ def main():
             effort_dist[s["effort"]] = effort_dist.get(s["effort"], 0) + 1
         if s.get("pmode"):
             pmode_dist[s["pmode"]] = pmode_dist.get(s["pmode"], 0) + 1
-
-    # ---- warrant + absence: situations that called for a lever not used ----
-    # Nominations only — the coach still asks; never convict from these.
-    warrants = []
-    # habitual bypass is an S3 symptom to ASK about (may be a conscious container choice)
-    bypass = pmode_dist.get("bypassPermissions", 0)
-    if bypass:
-        warrants.append({"lever": "permission_tuning", "reason": "habitual_bypass",
-                         "bypass_sessions": bypass, "total_sessions": len(shapes)})
-    big = [s for s in shapes if s["events"].get("turn", 0) >= HIGH_TURN]
-    if big and not capabilities["subagent"]["used"]:
-        warrants.append({"lever": "subagent", "reason": "high_turn_sessions",
-                         "sessions": [s["session"] for s in big]})
-    if overlaps and not capabilities["worktree"]["used"]:
-        warrants.append({"lever": "worktree", "reason": "same_repo_overlap",
-                         "overlaps": len(overlaps)})
-    if big and not capabilities["plan_mode"]["used"]:
-        warrants.append({"lever": "plan_mode", "reason": "large_session_no_plan",
-                         "sessions": [s["session"] for s in big]})
 
     # ---- thrash detection: sessions that went in circles (feeds /retro) ----
     # SHAPE only — never a read of prompt quality. A session looks stuck when it
@@ -268,11 +269,42 @@ def main():
             if r >= THRASH_RATIO and (worst is None or r > worst["ratio"]):
                 worst = {"category": cat, "failures": f, "successes": o, "ratio": round(r, 2)}
         if bursts or (turns >= HIGH_TURN and worst):
+            if bursts and worst and compacts >= 1:
+                conf = "strong"
+            elif bursts or (worst and compacts >= 1):
+                conf = "medium"
+            else:
+                conf = "weak"
             thrash_sessions.append({
                 "session": s["session"], "projects": s["projects"],
-                "turns": turns, "compacts": compacts,
+                "turns": turns, "compacts": compacts, "confidence": conf,
                 "bursts": bursts, "stuck_category": worst,
             })
+    thrash_names = {t["session"] for t in thrash_sessions}
+
+    # ---- warrant + absence: situations that called for a lever not used ----
+    # Nominations only — the coach still asks; never convict. Each carries a
+    # confidence grade so the coach can order (strong first) and hold weak ones.
+    warrants = []
+    # habitual bypass is an S3 symptom to ASK about (may be a conscious container choice)
+    bypass = pmode_dist.get("bypassPermissions", 0)
+    if bypass:
+        warrants.append({"lever": "permission_tuning", "reason": "habitual_bypass",
+                         "bypass_sessions": bypass, "total_sessions": len(shapes),
+                         "confidence": "strong" if bypass == len(shapes) else "medium"})
+    big = [s for s in shapes if s["events"].get("turn", 0) >= HIGH_TURN]
+    if big and not capabilities["subagent"]["used"]:
+        conf = "medium" if any(s["events"].get("compact", 0) >= 2 for s in big) else "weak"
+        warrants.append({"lever": "subagent", "reason": "high_turn_sessions",
+                         "sessions": [s["session"] for s in big], "confidence": conf})
+    if overlaps and not capabilities["worktree"]["used"]:
+        warrants.append({"lever": "worktree", "reason": "same_repo_overlap",
+                         "overlaps": len(overlaps),
+                         "confidence": "strong" if len(overlaps) >= 2 else "medium"})
+    if big and not capabilities["plan_mode"]["used"]:
+        conf = "medium" if any(s["session"] in thrash_names for s in big) else "weak"
+        warrants.append({"lever": "plan_mode", "reason": "large_session_no_plan",
+                         "sessions": [s["session"] for s in big], "confidence": conf})
     print(json.dumps({
         "window_days": days,
         "sessions": shapes,
@@ -293,6 +325,8 @@ def main():
         },
         "capabilities": capabilities,
         "failure_ratio": failure_ratio,
+        "friction_confidence": friction_confidence,
+        "category_sessions": cat_sessions,
         "effort_distribution": effort_dist,
         "pmode_distribution": pmode_dist,
         "unused_lever_warrants": warrants,

@@ -125,8 +125,17 @@ uniform effort across mixed tasks → effort tuning; configured-but-unused MCP).
 **Use the precomputed signals.** `session_shapes.py` now emits `unused_lever_warrants`
 (warrant + absence, already checked against the `capabilities` map), `failure_ratio`
 (a category with high failures BUT high successes is a busy day, not a broken lever —
-weight nominations by ratio, not raw failure count), `effort_distribution`, and
-`capabilities` (what the user demonstrably used). A warrant fires only when the lever
+weight nominations by ratio, not raw failure count), `friction_confidence` (per-category
+grade), `effort_distribution`, and `capabilities` (what the user demonstrably used).
+
+**Confidence pacing** (scoring.md § Confidence grading). Every warrant, thrash entry,
+and friction category carries a grade. Order nominations **strong → medium**, at most
+1–2/run; **never nominate a `weak` finding as a problem** — it graduates to medium when
+it recurs. UPGRADE one tier when a `/log` note in the user's words names the same
+theme. And apply CONTRADICTION: if the user's own claim is directly negated by the
+journal — "tests always fail" but `failure_ratio[test].ratio < 0.3`, or "I always use
+plan mode" but `capabilities.plan_mode.used == false` — do NOT nominate or agree;
+surface the conflict, ask which sessions they mean, record nothing until it clears. A warrant fires only when the lever
 was NOT used — never nominate a lever `capabilities` shows in active use; instead note
 it as confirmed landscape for the next `/score`.
 

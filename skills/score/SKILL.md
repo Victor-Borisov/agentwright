@@ -97,8 +97,13 @@ Rules:
   effort half of D5.
 - For every artifact-absent item, ask whether it's a deliberate choice. Apply the
   conscious-refusal quality bar from checklist.md strictly, INCLUDING journal
-  consistency (scoring.md): a refusal contradicted by observed friction of the
-  matching category caps at `partial` and must be challenged out loud.
+  consistency (scoring.md § Confidence grading — this is the `contradicted` case): a
+  refusal contradicted by observed friction of the matching category caps at `partial`
+  and must be challenged out loud. The same contradiction rule applies to any claim the
+  journal negates — "I always use plan mode" but `capabilities.plan_mode.used == false`
+  → ask, don't credit on the word alone.
+- Record `confidence` + a one-line `evidence` on findings written to the scorecard, so
+  the report can show why an item was raised and how firmly.
 - **Blocked-on-others (scoring.md § Growth vs blocked-on-others).** When a gap needs
   an action the user cannot take themselves and they have already raised it (escalated
   to a lead/DBA, filed or been unable to file a ticket), that is the terminal mature

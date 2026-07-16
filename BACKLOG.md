@@ -251,6 +251,28 @@ stuck from busy).
   what the user volunteers; policy-safe because the user brings the content.
   knowledge_version 4 → 5.
 
+## Done in v0.10.1 (confidence grading + contradiction, 2026-07-16)
+
+Borrowed the good half of Cursor Team Kit's `workflow-from-chats` confidence model
+(strong/medium/weak/contradicted) — but grounded on OBSERVED events, not chat
+statements, so contradiction rests on hard signals (ratio, `capabilities.used`), not
+"you said otherwise in a chat."
+
+- [x] **[MINOR] Nominations weren't graded — noise risk** — `session_shapes.py` now
+  emits `friction_confidence` per category, `category_sessions`, and a `confidence`
+  grade on every `unused_lever_warrants` and `thrash_sessions` entry (deterministic:
+  recurrence ≥2 sessions + ratio ≥0.6 → strong; proxy-only warrants → weak). Coach
+  orders strong→medium, ≤2/run, and — per the "no padding" precedent — **never
+  nominates a weak finding as a problem**; weak graduates to medium on recurrence, and
+  on a no-friction run may only seed a gentle teach. A `/log` note upgrades one tier.
+- [x] **[MINOR] Self-report could go unchallenged** — `contradicted` is now a
+  first-class outcome across coach/retro/score: a claim the journal negates ("tests
+  always fail" but ratio <0.3; "I always use plan mode" but `plan_mode.used==false`;
+  a refusal contradicted by recurring friction) is not nominated or accepted — pause
+  and ask. Protects the user-volunteered `/retro` account from sending the diagnosis
+  to the wrong cause. New constants `STRONG_MIN_SESSIONS=2`, `CONTRADICT_RATIO=0.3`.
+  No credit/cap math changed → knowledge_version stays 5 (behavior + pacing only).
+
 ## Open — candidates for v0.5+ (need real usage data or bigger design)
 
 - [ ] **[MAJOR] Academy module map** — the score skill demands "a specific module," but no

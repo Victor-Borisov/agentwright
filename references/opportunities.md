@@ -11,7 +11,13 @@ these catch the pain the user cannot feel because the lever is not on their map.
    tasks interleaved" from "one big task" — and does not need to. Show the evidence,
    ask the question, let the answer decide.
 2. **At most 1–2 opportunity candidates per coach run**, highest-confidence first.
-   More turns coaching into a nagging feature tour.
+   More turns coaching into a nagging feature tour. Confidence is now GRADED
+   (scoring.md § Confidence grading): each warrant/thrash/friction finding carries
+   `strong` / `medium` / `weak`. **`weak` is never nominated as a problem** — it is
+   held and graduates to `medium` when it recurs (a second session). Spend the budget
+   on `strong` first, then `medium`; on a no-friction run a `weak` signal may only seed
+   the teach-one-lever slot, framed as landscape teaching. A finding that a user claim
+   directly contradicts (`contradicted`) is not nominated at all — pause and ask.
 3. **Remember the answer — and the reason.** Every asked opportunity gets a
    scorecard entry (`opportunities[]`) with the user's stated reason: `adopted` /
    `taught` (didn't know — now knows; give the practical task) / `dismissed`.

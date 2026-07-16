@@ -47,6 +47,13 @@ Ask exactly one: **"What were you trying to get done, and where did it start goi
 circles?"** Everything downstream uses only this answer. Do not interrogate; one
 question, then listen.
 
+**Do not accept a self-report the journal contradicts** (scoring.md § Confidence
+grading). If the user's account conflicts with a HARD signal — they say "the tests kept
+failing" but `failure_ratio[test].ratio < 0.3` (mostly green), or "I planned it out" but
+`capabilities.plan_mode.used == false` — do not agree and do not override; note the
+conflict plainly and ask which sessions they mean. The retrospective is only as good as
+the account, and an unchallenged inaccuracy sends it to the wrong cause.
+
 ### 4. Judgment first, then the lever
 
 Ask "what do you think would have stopped the loop?" BEFORE offering your read (same
