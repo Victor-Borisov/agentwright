@@ -149,7 +149,10 @@ single number for the non-repo root.
 Write `~/.claude/agentwright/scorecard.json` (schema in scoring.md; set
 `checklist_version` to the current `calibration.knowledge_version`; append to
 `history`, preserve `actions` and `opportunities` from the previous scorecard —
-never drop unverified actions). Then seal it:
+never drop unverified actions). **Snapshot the friction rate into the new `history[]`
+entry:** run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/session_shapes.py` and store its
+`totals.friction_per_100_turns` as `friction_per_100` on the entry (null if no turns
+yet) — this is what `/agentwright:show`'s trajectory plots over time. Then seal it:
 `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/card_integrity.py stamp` — the show skill
 refuses to display a card whose seal does not match (tamper-evidence for
 screen-sharing; a card edited by hand stops being displayable).

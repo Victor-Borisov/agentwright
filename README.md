@@ -52,10 +52,11 @@ and always explains why. Top band: **Agent Architect**.
   personal non-git folders are left alone.
 
 - **`/agentwright:show`** — display the saved score instantly (screen-share friendly):
-  headline, axes, per-project lines, trend. Read-only, no recomputation. The card is
-  integrity-sealed on every score run; a scorecard edited outside Agentwright is
-  refused, not displayed. (Tamper-evidence for casual edits — the score stays
-  self-assessed and says so on every card.)
+  headline, per-project lines, and a **trajectory** — unicode sparklines of your score
+  and (the real story) your friction rate over runs, per-axis trends, and the verified-
+  fix tally. Read-only, no recomputation. The card is integrity-sealed on every score
+  run; a scorecard edited outside Agentwright is refused, not displayed. (Tamper-
+  evidence for casual edits — the score stays self-assessed and says so on every card.)
 
 A deliberate "no" counts. If you don't use a lever and can explain the tradeoff that
 rules it out in your context, you get full credit — seniority is *closed consciously*,

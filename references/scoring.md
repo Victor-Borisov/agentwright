@@ -272,6 +272,7 @@ Write `~/.claude/agentwright/scorecard.json` after every scoring run:
     {"friction": "test failures repeat across sessions", "lever": "L1 PostToolUse test hook",
      "date": "2026-07-02", "expected": "tool_failure/test rate per 100 turns drops in shop-api",
      "confidence": "strong", "evidence": "test failed in 3 sessions, ratio 0.7, plus a /log note",
+     "rationale": "failures repeat within minutes → the agent needs to SEE them immediately; a hook guarantees the feedback a rule only wishes for",
      "verified": null, "mechanism": null, "outcome": null}
   ],
   "opportunities": [
@@ -286,12 +287,15 @@ Write `~/.claude/agentwright/scorecard.json` after every scoring run:
   "levers": {"L1": "adopted", "L4": "taught", "O2": "never_discussed"},
   "mastery": {"guarantee-levers": 3},
   "history": [{"date": "2026-07-02", "score": 72, "checklist_version": 1,
-               "project": "shop-api",
+               "project": "shop-api", "friction_per_100": 4.2,
                "axes": {"landscape": 0.8, "judgment": 0.7, "oversight": 0.6, "outcome": 0.75}}]
 }
 ```
 
 - `actions[]` is the contract for the coach's Step 0 (two-part verification above).
+  `rationale` records WHY the lever was chosen; at verification it lets the coach judge
+  whether the hypothesis held, not merely whether the metric moved — a fix that worked
+  for a different reason than expected is a weaker lesson than one that worked as reasoned.
 - `opportunities[]` is the contract for Step 1b: `adopted` / `taught` / `dismissed`.
   For scoring, `dismissed` = the lever is known (`taught`); refusal credit is minted
   only in the score dialog.
@@ -303,8 +307,11 @@ Write `~/.claude/agentwright/scorecard.json` after every scoring run:
   it drives what the coach teaches when there is no friction (see coach Step 1b).
 - `mastery{}` counts consecutive correct Step-2 picks per lever class — it drives
   when the judgment ritual is skipped and spot-checked instead.
-- `history[]` entries carry `axes` and `project` so long-term trends can be reported
-  per axis ("oversight flat for 3 months") and segmented by project.
+- `history[]` entries carry `axes`, `project`, and a `friction_per_100` snapshot so
+  long-term trends can be reported per axis ("oversight flat for 3 months"), segmented
+  by project, and plotted by `/agentwright:show` (score + friction sparklines). The
+  friction snapshot only fills in from score runs that recorded it (added in v0.11.0) —
+  older entries lack it and the trajectory shows friction once ≥2 entries have it.
 
 ## Evolution contract — when the measured set itself changes
 

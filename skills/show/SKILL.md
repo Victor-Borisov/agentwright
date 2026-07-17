@@ -19,7 +19,9 @@ in the user's language.
 
 1. Run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/card_integrity.py check`
 2. Read `~/.claude/agentwright/scorecard.json`.
-3. Render, honoring the check result:
+3. Run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/score_trajectory.py` for the trajectory
+   block (sparklines are precomputed — render them verbatim, do not invent glyphs).
+4. Render, honoring the check result:
 
 - `no-scorecard` → no card exists yet: suggest `/agentwright:score` (~10 min) and stop.
 - `sealed-ok` → render normally.
@@ -32,21 +34,34 @@ in the user's language.
 
 ## Render format
 
-A compact terminal card, in this spirit (markdown, no giant ASCII art):
+A compact terminal card, in this spirit (markdown, no giant ASCII art). The
+trajectory block appears only when `score_trajectory.py` reports `runs >= 2`:
 
-> **Agentwright Score: 72 ±3 — Agent Builder** · assessed 2026-07-02 (11 days ago)
-> Axes: landscape 0.8 · judgment 0.7 · oversight 0.6 · outcome 0.75
+> **Agentwright Score: 78 ±3 — Agent Builder** · assessed 2026-07-17 (today)
+>
+> Trajectory (5 runs)
+> · score&nbsp;&nbsp;&nbsp;▁▃▅▆█&nbsp;&nbsp;62 → 78 (+16)
+> · friction ▇▆▄▃▁&nbsp;&nbsp;8.1 → 2.3 per 100 prompts ↓ good
+> · axes&nbsp;&nbsp;&nbsp;&nbsp;landscape ▁▃▅▆█ rising · judgment ▁▁▅▅█ flat · oversight ▁▃▅▇█ rising · outcome ▁▃▅▆█ rising
+> · fixes&nbsp;&nbsp;&nbsp;4 verified, 1 awaiting signal
+>
 > Projects: backend-api 91 · data-jobs 88 (capped by S1)
-> Trend: 65 → 72 over 3 runs · 2 fixes verified, 1 awaiting signal
 > Verified locally by Agentwright vX.Y.Z; self-assessed, not a third-party certification.
 
 Rules:
-- Headline score with its precision band and level, then date with age. If the card
-  is older than ~6 weeks, add "consider re-scoring".
-- Axes on one line; skip axes that are null/not assessed.
-- One line per project score, with caps named.
-- Trend from `history[]` (skip if single entry); count `actions[]` verified vs pending.
-- The self-assessed disclaimer line is MANDATORY — it protects the user from
+- **Headline** — score with its precision band and level, then date with age. If the
+  card is older than ~6 weeks, add "consider re-scoring".
+- **Trajectory** (from `score_trajectory.py`) — render the precomputed `spark` strings
+  VERBATIM; never fabricate or "improve" glyphs. Show `score`, `friction`, `axes`,
+  `fixes` lines. For friction, LOWER is better — a `falling` trend is good (say so).
+  If `friction.available` is false, omit the friction line (its snapshot only fills in
+  from score runs that recorded it — a couple of runs in). If `runs < 2`
+  (`note: single_run`/`no_runs`), skip the whole trajectory block and show only the
+  headline + a line like "trajectory builds from your second score run"; still show the
+  `fixes` tally if present. Numbers are the truth; the sparkline is illustrative — say
+  nothing the numbers don't support.
+- **Projects** — one line per project score, with caps named.
+- The **self-assessed disclaimer** line is MANDATORY — it protects the user from
   overclaiming in front of an audience, and the plugin from certifying what it cannot.
 - Nothing else. No growth plan, no coaching, no questions — this is a display window,
   the audience may be watching a shared screen.

@@ -273,6 +273,31 @@ statements, so contradiction rests on hard signals (ratio, `capabilities.used`),
   to the wrong cause. New constants `STRONG_MIN_SESSIONS=2`, `CONTRADICT_RATIO=0.3`.
   No credit/cap math changed → knowledge_version stays 5 (behavior + pacing only).
 
+## Done in v0.10.2 (fix rationale, 2026-07-17)
+
+- [x] **[MINOR] Actions recorded WHAT and the expected metric, but not WHY** (idea from
+  SIA's `improvement.md` rationale artifact). `actions[]` now carries a one-line
+  `rationale` — the hypothesis for why this lever fixes this friction. At Step-0
+  verification the coach can judge whether the reasoning held, not just whether the
+  number moved: a fix that worked for a different reason is a weaker lesson. Recorded by
+  coach + retro; schema + persistence contract updated.
+
+## Done in v0.11.0 (score/friction trajectory in show, 2026-07-17)
+
+- [x] **[MINOR] `/show` showed a static card, no progress-over-time** (idea from SIA's
+  accuracy-across-generations dashboard, adapted to "friction across runs"). New
+  `scripts/score_trajectory.py` turns `history[]` into terminal unicode sparklines
+  (deterministic — the script picks glyphs, not the LLM): score, friction rate,
+  per-axis trends, and the verified-fix tally, each with a first→last delta and a
+  trend flag (float-epsilon so threshold deltas read consistently). `/show` renders it
+  verbatim when `runs >= 2`; on a single run it says the trajectory builds from run two.
+  The real signal is the friction sparkline falling (▇▆▄▃▁ = your harness is cutting
+  pain, not just the score rising). To feed it, `/score` now snapshots
+  `friction_per_100` (from session_shapes) into each `history[]` entry — it fills in
+  going forward; older entries lack it. knowledge_version unchanged (display only).
+  RU-docs terminology fixed alongside: the word for `turn` now means "prompt" (was a
+  chess-move metaphor), since the event is a prompt submission.
+
 ## Open — candidates for v0.5+ (need real usage data or bigger design)
 
 - [ ] **[MAJOR] Academy module map** — the score skill demands "a specific module," but no

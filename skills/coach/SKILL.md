@@ -203,7 +203,9 @@ guarantee is needed — there is a lever you haven't tried."
   not, back up the file being modified first.
 - Record in `scorecard.json` → `actions[]`: friction, lever, date, `expected` (the
   recipe's normalized metric, e.g. "tool_failure/test rate per 100 turns drops
-  in project X"), `verified: null`. Record **immediately after each individual
+  in project X"), a one-line `rationale` (WHY this lever for this friction — the
+  hypothesis, so a later run can judge whether the guess was right, not just whether
+  the number moved), `verified: null`. Record **immediately after each individual
   fix** — never batch records for the end of the run. An applied artifact without
   a scorecard entry is an orphan: Step 0 will never verify it, and the next run
   will re-propose a fix for friction that is already treated.

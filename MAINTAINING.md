@@ -54,6 +54,9 @@ references, bump versions per the table above.
    matcher in hooks.json and a label to `CAP_MAP`; the .sh is a thin wrapper.
 7. `scripts/scan_artifacts.py` — mirror any new journal aggregate the `/score` skill
    needs (it reads scan output, not session_shapes) — e.g. `capabilities_used`.
+   `scripts/score_trajectory.py` — if you add a NEW per-run `history[]` field that is a
+   time series (like `friction_per_100`), add a sparkline line for it here and have
+   `/score` snapshot it into the history entry; `/show` renders whatever this emits.
 8. Docs (all of them): README "Signal journal" bullet + the `#day` flow node and
    privacy "Reads" list in BOTH `docs/index.html` AND `docs/index.ru.html`.
 9. Test with a synthetic stdin JSON (see the Testing section below).

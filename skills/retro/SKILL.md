@@ -69,6 +69,7 @@ first; land one change, not a lecture.
   rule, a hook), and the user agrees, help apply it and record in
   `~/.claude/agentwright/scorecard.json` → `actions[]`: `{friction: "thrash: <cause>",
   lever, date, expected: "<thrash/burst/ratio metric from thrash.md> drops",
+  rationale: "<why this lever fixes this thrash cause — the hypothesis>",
   verified: null}`. Record immediately (an applied fix without an entry is an orphan).
 - If it is pure craft with no artifact (e.g. T1 "define done first"), record it as a
   landscape teaching: set the relevant `levers{}` entry to `taught` and leave a short
