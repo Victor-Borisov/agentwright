@@ -54,6 +54,10 @@ references, bump versions per the table above.
    matcher in hooks.json and a label to `CAP_MAP`; the .sh is a thin wrapper.
 7. `scripts/scan_artifacts.py` — mirror any new journal aggregate the `/score` skill
    needs (it reads scan output, not session_shapes) — e.g. `capabilities_used`.
+   Note: the per-repo secrets scan is cached in `state/secrets-cache.json` keyed by
+   repo HEAD (clean trees only) and repos scan in parallel — if you change what the
+   secrets scan returns, the cache carries the OLD shape until HEAD changes; bump/clear
+   the cache file or key it on a version if the result schema changes.
    `scripts/score_trajectory.py` — if you add a NEW per-run `history[]` field that is a
    time series (like `friction_per_100`), add a sparkline line for it here and have
    `/score` snapshot it into the history entry; `/show` renders whatever this emits.

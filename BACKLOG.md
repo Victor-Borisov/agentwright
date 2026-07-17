@@ -306,6 +306,18 @@ statements, so contradiction rests on hard signals (ratio, `capabilities.used`),
   is a name-free aggregate ("N repos, median X"). Per-project readiness stays in the
   `/score` report (private). Display-only; no score math changed.
 
+## Done in v0.11.2 (workspace scan was minutes-slow, 2026-07-17)
+
+- [x] **[MAJOR] Secrets scan ran once per repo, sequentially** — a workspace of ~14
+  repos on a /mnt (WSL) mount took minutes per `/score` (gitleaks scans each repo's
+  full history at 120s/repo; the fallback reads up to 5000 files/repo). Two fixes:
+  (1) **cache by HEAD** — `secrets_for()` caches the result in `state/secrets-cache.json`
+  keyed by repo HEAD when the tree is CLEAN (dirty trees always rescan, since HEAD
+  doesn't capture uncommitted files); repeat `/score` runs are near-instant. (2)
+  **parallel** — workspace repos scan in a thread pool (I/O-bound → real speedup;
+  order preserved). Result carries `cached: true` when served from cache. Perf only;
+  no score/credit change.
+
 ## Open — candidates for v0.5+ (need real usage data or bigger design)
 
 - [ ] **[MAJOR] Academy module map** — the score skill demands "a specific module," but no

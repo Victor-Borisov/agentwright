@@ -19,11 +19,22 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 HOME = os.path.expanduser("~")
 CLAUDE_DIR = os.path.join(HOME, ".claude")
 DATA_DIR = os.path.join(CLAUDE_DIR, "agentwright")
+STATE_DIR = os.path.join(DATA_DIR, "state")
+SECRETS_CACHE = os.path.join(STATE_DIR, "secrets-cache.json")
+
+# Secrets scanning is the slow step (gitleaks history / a 5000-file walk) and runs
+# once per repo — brutal for a workspace of many repos on a slow /mnt mount. Cache
+# the result by repo HEAD when the tree is clean, and scan repos in parallel.
+_secrets_cache = None
+_cache_lock = threading.Lock()
+_cache_dirty = False
 
 SECRET_VALUE_RE = re.compile(r"^(sk-[A-Za-z0-9]{10,}|ghp_[A-Za-z0-9]{20,}|xoxb-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16})")
 SECRET_FILE_RE = re.compile(
@@ -212,6 +223,63 @@ def env_ignore_probe(path):
     return {"effective": effective, "sources": sorted(sources)}
 
 
+def _git_out(path, *args):
+    try:
+        r = subprocess.run(["git", "-C", path, *args],
+                           capture_output=True, text=True, timeout=15)
+        return r.stdout.strip() if r.returncode == 0 else None
+    except Exception:
+        return None
+
+
+def _ensure_cache():
+    global _secrets_cache
+    if _secrets_cache is None:
+        try:
+            with open(SECRETS_CACHE, encoding="utf-8") as f:
+                _secrets_cache = json.load(f)
+            if not isinstance(_secrets_cache, dict):
+                _secrets_cache = {}
+        except Exception:
+            _secrets_cache = {}
+    return _secrets_cache
+
+
+def secrets_for(path):
+    """Cache the secrets result by repo HEAD when the working tree is CLEAN; always
+    rescan a dirty tree (uncommitted files aren't captured by the HEAD sha). Thread-safe
+    so workspace repos can scan in parallel."""
+    global _cache_dirty
+    key = os.path.abspath(path)
+    head = _git_out(path, "rev-parse", "HEAD")
+    status = _git_out(path, "status", "--porcelain")
+    clean = head is not None and status == ""
+    if clean:
+        with _cache_lock:
+            entry = _ensure_cache().get(key)
+        if entry and entry.get("head") == head:
+            return {**entry["result"], "cached": True}
+    result = secrets_scan(path)
+    if clean:
+        with _cache_lock:
+            _ensure_cache()[key] = {"head": head, "result": result}
+            _cache_dirty = True
+    return result
+
+
+def save_secrets_cache():
+    if not _cache_dirty or _secrets_cache is None:
+        return
+    try:
+        os.makedirs(STATE_DIR, exist_ok=True)
+        tmp = SECRETS_CACHE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_secrets_cache, f)
+        os.replace(tmp, SECRETS_CACHE)
+    except Exception:
+        pass
+
+
 def repo_facts(path):
     """Repo-scoped facts for one git repository (S2, B3, secrets probes)."""
     gitignore_env = False
@@ -233,7 +301,7 @@ def repo_facts(path):
         "ci_workflows": ci_workflows,
         "gitlab_ci": os.path.isfile(os.path.join(path, ".gitlab-ci.yml")),
         "precommit": precommit,
-        "secrets": secrets_scan(path),
+        "secrets": secrets_for(path),
     }
 
 
@@ -244,9 +312,9 @@ def workspace_facts(root):
     """When cwd is not a repo, treat it as a workspace root: scan every immediate
     subdirectory that IS a git repo. Non-git subdirs are listed by name only and
     never scanned — personal folders legitimately hold un-ignored local files."""
-    repos = []
     non_git = []
     truncated = False
+    candidates = []  # (name, path) of git repos, capped
     try:
         entries = sorted(os.listdir(root))
     except Exception:
@@ -258,19 +326,26 @@ def workspace_facts(root):
         if not os.path.isdir(path):
             continue
         if os.path.isdir(os.path.join(path, ".git")):
-            if len(repos) >= WORKSPACE_REPO_CAP:
+            if len(candidates) >= WORKSPACE_REPO_CAP:
                 truncated = True
                 continue
-            repos.append({
-                "name": name,
-                "path": path,
-                **repo_facts(path),
-                "claude_md": claude_md_facts(os.path.join(path, "CLAUDE.md")),
-            })
+            candidates.append((name, path))
         else:
             non_git.append(name)
-    if not repos:
+    if not candidates:
         return None
+
+    def build(nc):
+        name, path = nc
+        return {"name": name, "path": path, **repo_facts(path),
+                "claude_md": claude_md_facts(os.path.join(path, "CLAUDE.md"))}
+
+    # Parallel — secrets scanning is I/O-bound (subprocess / file reads), so threads
+    # give real speedup; ex.map preserves candidate order.
+    workers = min(8, len(candidates))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        repos = list(ex.map(build, candidates))
+
     return {"root": root, "repos": repos, "non_git_dirs": non_git,
             "truncated": truncated}
 
@@ -381,6 +456,7 @@ def main():
     except Exception:
         pass
 
+    save_secrets_cache()  # persist any freshly-scanned repos, keyed by HEAD
     print(json.dumps({
         "scanned_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "project": proj,
