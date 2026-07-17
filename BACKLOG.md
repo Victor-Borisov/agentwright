@@ -298,6 +298,14 @@ statements, so contradiction rests on hard signals (ratio, `capabilities.used`),
   RU-docs terminology fixed alongside: the word for `turn` now means "prompt" (was a
   chess-move metaphor), since the event is a prompt submission.
 
+## Done in v0.11.1 (show is screen-share-safe, 2026-07-17)
+
+- [x] **[MAJOR] `/show` leaked the repo inventory** — the projects block printed every
+  work repo name (NewPM, paysoft, …) onto what is explicitly a screen-share surface.
+  Removed the per-project list from `/show` entirely; the only allowed repo signal there
+  is a name-free aggregate ("N repos, median X"). Per-project readiness stays in the
+  `/score` report (private). Display-only; no score math changed.
+
 ## Open — candidates for v0.5+ (need real usage data or bigger design)
 
 - [ ] **[MAJOR] Academy module map** — the score skill demands "a specific module," but no

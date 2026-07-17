@@ -45,7 +45,6 @@ trajectory block appears only when `score_trajectory.py` reports `runs >= 2`:
 > · axes&nbsp;&nbsp;&nbsp;&nbsp;landscape ▁▃▅▆█ rising · judgment ▁▁▅▅█ flat · oversight ▁▃▅▇█ rising · outcome ▁▃▅▆█ rising
 > · fixes&nbsp;&nbsp;&nbsp;4 verified, 1 awaiting signal
 >
-> Projects: backend-api 91 · data-jobs 88 (capped by S1)
 > Verified locally by Agentwright vX.Y.Z; self-assessed, not a third-party certification.
 
 Rules:
@@ -60,7 +59,11 @@ Rules:
   headline + a line like "trajectory builds from your second score run"; still show the
   `fixes` tally if present. Numbers are the truth; the sparkline is illustrative — say
   nothing the numbers don't support.
-- **Projects** — one line per project score, with caps named.
+- **No project list.** `/show` is a screen-share surface and must NOT print per-repo
+  names or scores — that would leak the user's whole repository inventory onto a shared
+  screen. Per-project readiness lives in the `/agentwright:score` report (private), not
+  here. (If the user asks for a repo signal in `/show`, the only allowed form is a
+  name-free aggregate — "N repos, median X, most capped by S2" — never the names.)
 - The **self-assessed disclaimer** line is MANDATORY — it protects the user from
   overclaiming in front of an audience, and the plugin from certifying what it cannot.
 - Nothing else. No growth plan, no coaching, no questions — this is a display window,
