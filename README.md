@@ -24,14 +24,14 @@ and always explains why. Top band: **Agent Architect**.
   journal.
 - **`/agentwright:log`** — capture a friction note in your own words the moment
   something annoys you; the highest-signal input for the next review.
-- **`/agentwright:retro`** — stuck retrospective. When a session went in circles
-  (the plugin detects the *shape* — a failure burst, or a big session with a category
-  stuck at a high failure ratio — never your prompts), it helps you find the *upstream*
-  fix from what you tell it: was the target fuzzy, was there no plan, was it too big,
-  stale context, patching-the-patch, or a missing guarantee? Lands one lever and
-  records it so the next coach run verifies your thrashing actually dropped. It never
-  grades your prompting — that's off-limits by design; you bring the story, it brings
-  the playbook.
+- **`/agentwright:retro`** — stuck retrospective. Paste the whole conversation you
+  weren't happy with straight into the command; the model reviews all of it and finds
+  where it could improve — fuzzy target, no plan, too big, stale context,
+  patching-the-patch, a missing guarantee — then lands one *upstream* fix and records it
+  so the next coach run verifies your thrashing actually dropped. (Invoke it empty and it
+  asks you to paste; no transcript to hand over? it falls back to the journal's session
+  shape.) The plugin never reads your transcripts — it works only with what you paste,
+  keeps only the lesson, and never grades your prompting; that's off-limits by design.
 - **Morning reminder** — a fast SessionStart check: if unreviewed friction accumulated
   since your last review, you get one line suggesting `/agentwright:coach`. Silent
   otherwise.

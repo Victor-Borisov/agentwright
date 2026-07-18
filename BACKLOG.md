@@ -318,6 +318,20 @@ statements, so contradiction rests on hard signals (ratio, `capabilities.used`),
   order preserved). Result carries `cached: true` when served from cache. Perf only;
   no score/credit change.
 
+## Done in v0.11.3 (retro reviews a pasted dialog, 2026-07-18)
+
+- [x] **[MAJOR] `/retro` was narration-only; couldn't review the actual dialog** — the
+  user wanted to paste the whole conversation and have the model find the improvement
+  points itself. Now `/retro` has two input modes: (a) text pasted with the command →
+  the model reviews the WHOLE dialog (no curating), surfaces where it could improve
+  (fuzzy prompts, wrong turns, over-complication, missed levers), maps to the thrash
+  taxonomy, cross-checks the journal (contradiction rule), lands one upstream lever; (b)
+  empty invocation → ASK the user to paste it (newcomer-friendly), with a journal-shape
+  fallback if there's no transcript. Privacy hard line reinforced: works ONLY from
+  pasted text, never reads `~/.claude/projects`, persists only the derived lesson (not
+  the raw dialog). This is the policy-clean way to reach prompt/approach quality — the
+  user brings the material, the plugin never extracts it.
+
 ## Open — candidates for v0.5+ (need real usage data or bigger design)
 
 - [ ] **[MAJOR] Academy module map** — the score skill demands "a specific module," but no

@@ -1,83 +1,90 @@
 ---
 description: >
-  Stuck retrospective — turn a session that went in circles into an upstream fix.
-  Use when the user says they thrashed, got stuck, "went round in circles", spent too
-  long on something, or suspects their approach/prompting was off; or when the
-  session-start reminder / coach flags a thrash. Detects the STUCK SHAPE from journal
-  metadata (never reads prompts), then finds the cause WITH the user from what they
-  volunteer, and lands one upstream lever.
+  Stuck retrospective — turn a session that went in circles into an upstream fix. Use
+  when the user says they thrashed, got stuck, "went round in circles", didn't like how
+  the model behaved, or wants a session reviewed for what to improve; or when the coach
+  flags a thrash. The user may PASTE the whole conversation into the command and the
+  model reviews all of it; if they invoke it empty, ask them to paste it.
+argument-hint: "[paste the whole conversation to review]"
 allowed-tools: "Bash, Read"
 ---
 
 # Agentwright — stuck retrospective
 
-The one thing the plugin cannot see is prompt/approach quality — transcripts are
-off-limits (Anthropic Software Directory Policy §1.F). So this skill does NOT read
-what the user wrote. It detects that a session went in circles from SHAPE, then helps
-the user find the upstream cause from what THEY tell it, and lands one lever. Keep the
-framing straight throughout: the shape is observed; the cause comes from the user's
-account; the prompt is never graded.
+Reviews a session the user was unhappy with and finds the UPSTREAM fix (fuzzy target,
+no plan, too big, stale context, patching-the-patch, wrong lever). The one thing the
+plugin cannot see on its own is prompt/approach quality — transcripts are off-limits
+(Anthropic Software Directory Policy §1.F). So the material comes from the USER: they
+paste the dialog into this command; the model works only with that.
+
+**Privacy hard line.** Work ONLY from text the user pasted into this command (and the
+plugin's own journal). NEVER read `~/.claude/projects/` or any transcript/file to get
+the conversation. Do NOT persist the pasted dialog anywhere — analyze it in the moment
+and write only the derived English lesson to the scorecard.
 
 **Dialog language.** Read `~/.claude/agentwright/config.json`; conduct the dialog in
 `language` if set, else the user's language. Artifacts (scorecard) stay English.
 
 ## Procedure
 
-### 1. Find the stuck session (shape only)
+### 1. Do you have material to review?
 
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/session_shapes.py` (add `--archive --days 30`
-if the recent window is thin). Read `thrash_sessions`:
+- **Text was pasted with the command** (the user dropped a conversation in) → go to §2,
+  Analyze. Take the WHOLE thing as given; the user will not curate or trim it — do not
+  ask them to find "the relevant part."
+- **Empty invocation** (no text — e.g. a newcomer just trying the command) → ASK for it,
+  don't guess: briefly say what `/retro` does and request the input the skill needs:
+  *"Paste the conversation you'd like me to review — the whole thing is fine, I'll find
+  where it could improve. Or, if there's no transcript but you just felt stuck, tell me
+  what happened and I'll work from the journal."* Then STOP and wait. Do not run an
+  analysis on nothing.
 
-- If the user named a session or a recent one is present, take it (most recent, or the
-  one with a burst + highest stuck-category ratio).
-- If `thrash_sessions` is empty but the user invoked this manually ("I got stuck"),
-  that is fine — skip straight to step 3 and work purely from their account. Absence
-  of a detected shape is NOT "you didn't struggle"; some thrash leaves no burst.
+### 2. Analyze the pasted dialog
 
-### 2. Reflect the shape — non-judgmentally
+Read all of it and surface, yourself, where it could have gone better — the user asked
+you to find it, not to be quizzed:
+- ambiguous/underspecified prompts (target not pinned);
+- wrong turns pursued, over-complication, going in circles;
+- missed levers (plan mode, decomposition/subagent, `/rewind`, a needed guarantee).
 
-State the observable evidence and label it as shape, not judgment:
-"Session X: 55 turns, a 4-failure `test` burst in 12 min, ratio 0.83, 2 compactions.
-That shape usually means the work looped. I can't see what you wrote — so tell me the
-part I can't: …"
+Map findings to the thrash taxonomy in `${CLAUDE_PLUGIN_ROOT}/references/thrash.md`
+(T1 ambiguous target · T2 no plan · T3 too big · T4 stale context · T5 patching the
+patch · T6 wrong lever). Name the most UPSTREAM cause first; a real session often
+stacks two — lead with the earliest, land one change, not a lecture.
 
-### 3. One open question
+**Cross-check with the journal, don't just trust the dialog.** Run
+`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/session_shapes.py` (add `--archive --days 30` if
+thin). If the pasted account conflicts with a HARD signal — the dialog reads "tests kept
+failing" but `failure_ratio[test].ratio < 0.3`, or "I planned it" but
+`capabilities.plan_mode.used == false` — surface the conflict, don't paper over it
+(scoring.md § Confidence grading, the `contradicted` case).
 
-Ask exactly one: **"What were you trying to get done, and where did it start going in
-circles?"** Everything downstream uses only this answer. Do not interrogate; one
-question, then listen.
+**Judgment first.** Before giving your read, ask: "what do you think would have stopped
+the loop?" — same judgment-training rule as the coach. Then offer the upstream lever
+with its tradeoff.
 
-**Do not accept a self-report the journal contradicts** (scoring.md § Confidence
-grading). If the user's account conflicts with a HARD signal — they say "the tests kept
-failing" but `failure_ratio[test].ratio < 0.3` (mostly green), or "I planned it out" but
-`capabilities.plan_mode.used == false` — do not agree and do not override; note the
-conflict plainly and ask which sessions they mean. The retrospective is only as good as
-the account, and an unchallenged inaccuracy sends it to the wrong cause.
+### 3. Empty-and-narrating fallback (only if the user had no text to paste)
 
-### 4. Judgment first, then the lever
+Run `session_shapes.py`, take the strongest `thrash_sessions` entry, reflect the SHAPE
+non-judgmentally ("55 turns, a 4-failure test burst, ratio 0.83 — that shape usually
+means it looped"), then ask ONE open question — "what were you doing, where did it start
+going in circles?" — and proceed from their answer as in §2 (taxonomy, judgment-first).
 
-Ask "what do you think would have stopped the loop?" BEFORE offering your read (same
-judgment-training rule as the coach). Then map their account to the thrash taxonomy in
-`${CLAUDE_PLUGIN_ROOT}/references/thrash.md` (T1 ambiguous target · T2 no plan · T3 too
-big · T4 stale context · T5 patching the patch · T6 wrong lever) and propose the most
-UPSTREAM matching lever with its tradeoff. If two causes stack, name the earliest one
-first; land one change, not a lecture.
-
-### 5. Land exactly one change and record it
+### 4. Land exactly one change and record it
 
 - If the lever has an artifact (plan-mode habit, a CLAUDE.md decomposition/acceptance
-  rule, a hook), and the user agrees, help apply it and record in
+  rule, a hook) and the user agrees, help apply it and record in
   `~/.claude/agentwright/scorecard.json` → `actions[]`: `{friction: "thrash: <cause>",
   lever, date, expected: "<thrash/burst/ratio metric from thrash.md> drops",
-  rationale: "<why this lever fixes this thrash cause — the hypothesis>",
-  verified: null}`. Record immediately (an applied fix without an entry is an orphan).
+  rationale: "<why this lever fixes this cause — the hypothesis>", verified: null}`.
+  Record immediately (an applied fix without an entry is an orphan).
 - If it is pure craft with no artifact (e.g. T1 "define done first"), record it as a
-  landscape teaching: set the relevant `levers{}` entry to `taught` and leave a short
-  note — do NOT mint a fake `actions[]` entry with a metric it cannot move.
-- Preserve everything else in the scorecard; do not reseal or recompute the score here
-  (that is `/score`'s job).
+  landscape teaching: set the relevant `levers{}` entry to `taught` with a short note —
+  do NOT mint a fake `actions[]` entry with a metric it cannot move.
+- Preserve everything else; do not reseal or recompute the score (that is `/score`'s
+  job). Do NOT write the pasted dialog anywhere — only the lesson.
 
-### 6. Close straight
+### 5. Close straight
 
 One line: the next `/agentwright:coach` will check (Step 0) whether the thrash/burst
 rate for this class actually fell — effect, not opinion. Never end with a grade of the
