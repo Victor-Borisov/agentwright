@@ -298,64 +298,13 @@
     The environment is the one part of the equation entirely in your hands.</p>
   </div>
 
-  <h3 style="margin-top:34px">Why an agent flounders in a large legacy project — and what already ships for it</h3>
-  <p class="lede" style="margin-bottom:0">
-    The causes are predictable, and Claude Code has a first-class mechanism against each one.
-    They only need filling in — and then keeping current.
-  </p>
-  <table>
-    <thead><tr><th>What trips the agent up</th><th>Built-in Claude Code mechanism</th></tr></thead>
-    <tbody>
-      <tr>
-        <td>Doesn't know the team's unwritten conventions</td>
-        <td><code>CLAUDE.md</code> — project rules the agent reads at the start of every
-        session; hierarchical: general ones at the root, subsystem-specific ones alongside
-        each subsystem</td>
-      </tr>
-      <tr>
-        <td>Doesn't know the source of truth when code, database and docs disagree</td>
-        <td>Same rules file: "take the table schema from the repo, not the live database — the
-        test environment may not match this branch"</td>
-      </tr>
-      <tr>
-        <td>Pulls noise into context and loses the point</td>
-        <td>Subagents — exploratory reconnaissance across the codebase runs in a separate
-        agent, and only the conclusion returns to the main thread</td>
-      </tr>
-      <tr>
-        <td>Repeats the same mistakes in every new session</td>
-        <td>Persistent memory — a developer's correction is written once and applies in every
-        session afterwards</td>
-      </tr>
-      <tr>
-        <td>Violates prohibitions it is supposed to "remember"</td>
-        <td>Hooks and permission rules — the environment enforces the ban, not the model: the
-        agent physically cannot delete files or commit to a protected branch</td>
-      </tr>
-      <tr>
-        <td>Needs the same procedure explained from scratch every time</td>
-        <td>Skills and commands — a recurring operation becomes one command</td>
-      </tr>
-      <tr>
-        <td>Can't verify its own work — "tell me what's in there"</td>
-        <td>MCP connections — the agent queries the database itself and checks the result in a
-        browser against the test environment itself</td>
-      </tr>
-    </tbody>
-  </table>
-
   <div class="callout">
-    <h3>The key problem — and where Agentwright comes in</h3>
-    <p>All of the above is typically configured once at the start, and from then on the setup
-    falls behind reality: the project changes, Claude Code ships new capabilities, and the
-    harness stays last year's. Agentwright turns improving it into a standing cycle —
-    essentially PDCA over your working environment. <b>(1)</b> Failures and corrections are
-    captured as you work: hooks collect the background (failure rates, denials, context
-    compactions), while judgement-bearing remarks are recorded the moment the developer makes
-    them. <b>(2)</b> At review, what accumulated becomes fixes — each raised to the strictest
-    level available: a note in memory → a rule in <code>CLAUDE.md</code> → a ban in the
-    environment. <b>(3)</b> The next review opens by checking whether the failure actually
-    stopped recurring; if it didn't, the fix is escalated.</p>
+    <h3>The catch — and where Agentwright comes in</h3>
+    <p>Claude Code already ships a first-class mechanism for each classic failure — <code>CLAUDE.md</code>
+    rules, subagents, persistent memory, hooks, skills, MCP. But they're filled in once at the start
+    and then fall behind reality: the project changes, Claude Code ships new capabilities, and the
+    harness stays last year's. Agentwright turns keeping them current into a standing cycle — PDCA over
+    your working environment, walked through in the sections below.</p>
   </div>
 </section>
 
@@ -505,18 +454,10 @@
       <code>/agentwright:log</code> at the moment of irritation, and the human, via
       <code>/agentwright:retro</code> on a session that went in circles.</p>
     </div>
-    <div class="card">
-      <h3>Beyond — how the task is framed</h3>
-      <p>Once dialogue friction is largely closed too (remarks don't recur, bans live in the
-      environment), the remaining variance moves higher still — into the quality of the ask:
-      completeness of requirements, stating the "why", judging when to split a task. That's
-      friction of process rather than setup, and it's fixed by human habits, not by rules for
-      the agent.</p>
-    </div>
   </div>
 
   <div class="callout good">
-    <h3>The counters don't become useless — their role changes</h3>
+    <h3>From reconnaissance to sentry — the counters' role changes</h3>
     <p>They move from reconnaissance to sentry duty: the difference between profiling and
     monitoring. A quiet background is itself information. If failures spike after a plugin
     update or an environment switch, or compactions return on a new kind of task, something
