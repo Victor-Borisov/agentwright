@@ -100,5 +100,9 @@ done
 
 [ "$COUNT" -eq 0 ] && exit 0
 
-echo "Agentwright: ${COUNT} friction signal(s) accumulated in ${DAYS} session file(s) since your last review. Run /agentwright:coach to review them, verify past fixes, and update your score."
+# Field find 2026-08-25: SessionStart stdout reaches only the assistant's context —
+# the user had never seen a single reminder while it fired every day. The relay
+# instruction below is the soft rung (a request, not a guarantee); if reviews still
+# don't happen after reminders, escalate to the hook's systemMessage JSON output.
+echo "Agentwright: ${COUNT} friction signal(s) accumulated in ${DAYS} session file(s) since your last review. Run /agentwright:coach to review them, verify past fixes, and update your score. [Assistant: this reminder reaches only you, the user cannot see it — repeat its first sentence to the user at the start of your next reply and suggest /agentwright:coach; do not silently drop it.]"
 exit 0

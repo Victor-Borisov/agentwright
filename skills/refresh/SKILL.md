@@ -43,8 +43,10 @@ you triage and draft.
      were added, removed, or rescoped (not checklist-only — a levers- or
      opportunities-only change still bumps it, or the evolution contract is bypassed).
    - Update the version line in `references/checklist.md`.
-   - `.claude-plugin/plugin.json`: bump minor version for knowledge additions, patch
-     for fixes; a sweep that added nothing bumps neither (calibration date only).
+   - `.claude-plugin/plugin.json` AND the matching entry in
+     `.claude-plugin/marketplace.json`, in the same commit: bump minor version for
+     knowledge additions, patch for fixes; a sweep that added nothing bumps neither
+     (calibration date only). The pair must agree — release-check fails on drift.
    - If a new hook event became worth collecting, follow the add-a-signal
      checklist in `MAINTAINING.md`.
 

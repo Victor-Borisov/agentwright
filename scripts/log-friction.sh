@@ -5,9 +5,10 @@
 # deliberate input (not conversation data), capped and sanitized.
 
 set -u
-PY="$(command -v python3 || command -v python || true)"
+DIR="$(cd "$(dirname "$0")" && pwd)"
+. "${DIR}/py-resolve.sh"
 if [ -z "$PY" ]; then
-  echo "agentwright: python3 not found — note NOT logged" >&2
+  echo "agentwright: no runnable python 3.8+ found — note NOT logged" >&2
   exit 1
 fi
 

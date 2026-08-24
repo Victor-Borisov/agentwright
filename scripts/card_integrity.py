@@ -15,6 +15,7 @@ key the user does not hold, which a local plugin cannot provide by definition.
 
 Usage: card_integrity.py stamp|check
 Exit codes for check: 0 sealed+matching · 3 no scorecard · 4 no seal · 5 mismatch
+or unparseable json (a present-but-broken card is a modification, not absence)
 """
 import hashlib
 import json
@@ -49,9 +50,14 @@ def main():
     try:
         with open(CARD, encoding="utf-8") as f:
             card = json.load(f)
-    except (OSError, ValueError):
+    except OSError:
         print("no-scorecard")
         sys.exit(3)
+    except ValueError:
+        # A present-but-unparseable card is the cheapest hand edit of a sealed
+        # scorecard; classify it as outside modification, not as absence.
+        print("MODIFIED-OUTSIDE-AGENTWRIGHT (unparseable json)")
+        sys.exit(5)
 
     if mode == "stamp":
         card["integrity"] = seal(card)

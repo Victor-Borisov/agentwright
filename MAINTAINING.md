@@ -17,6 +17,7 @@ silently drop a finding — mark it `[x]` with the version or move it to "known 
 | Thing | Where | Bumps when |
 |---|---|---|
 | Plugin version | `.claude-plugin/plugin.json` | any release (semver: knowledge additions = minor, fixes = patch) |
+| Marketplace entry version | `.claude-plugin/marketplace.json` | in lockstep with the plugin version, same commit — release-check fails on drift, and the CLI's `plugin tag` subcommand validates the pair at tag time |
 | `knowledge_version` | `references/calibration.json` | checklist/levers/opportunities items added, removed, or rescoped |
 | `calibrated_for_claude_code` | `references/calibration.json` | after each changelog sweep, even if nothing was added |
 | Scorecard `checklist_version` | written by the score skill | follows `knowledge_version` |
@@ -63,7 +64,17 @@ references, bump versions per the table above.
    `/score` snapshot it into the history entry; `/show` renders whatever this emits.
 8. Docs (all of them): README "Signal journal" bullet + the `#day` flow node and
    privacy "Reads" list in BOTH `docs/index.html` AND `docs/index.ru.html`.
-9. Test with a synthetic stdin JSON (see the Testing section below).
+9. Any new `.py` entry point that a skill, hook, or doc will invoke gets a `.sh`
+   wrapper that sources `scripts/py-resolve.sh` — nothing outside `py-resolve.sh`
+   may name an interpreter or probe PATH for one. Enforced by release-check in two
+   places: the wrapper-integrity check (a `scripts/*.sh` doing python work must
+   source the resolver, and no lookup or command-position interpreter form is
+   allowed in any of them), and the invocation guard (a `python3`-prefixed
+   `${CLAUDE_PLUGIN_ROOT}` call in hooks/skills/README is flagged — only `bash`
+   wrapper calls pass). Residual gap: an interpreter named in prose outside those
+   scan sets, or a plain-path call without the variable, is not machine-checked.
+10. Test with a synthetic stdin JSON (`scripts/release-check.sh` does this in its
+    isolated-HOME section; extend it for the new event).
 
 **Two hard rules for new signals.** (a) PRIVACY: persist only a derived category, a
 safe tool label, or a counter — never raw text; MCP tool names (`mcp__server__tool`)
@@ -77,38 +88,89 @@ latency can delete just that one hook entry. Never subscribe a BLOCKING hook
 ## Testing before release
 
 ```bash
-# syntax
-for f in scripts/*.sh; do bash -n "$f"; done
-python3 -m py_compile scripts/*.py
-python3 - <<'EOF'
-import json; [json.load(open(f)) for f in
- ('.claude-plugin/plugin.json','hooks/hooks.json','references/calibration.json')]
-EOF
-
-# exec-bit independence — repos on Windows mounts (and some install paths) lose
-# the executable bit, so every invocation of a plugin script MUST go through an
-# explicit interpreter (`bash …/x.sh`, `python3 …/x.py`); a bare "${CLAUDE_PLUGIN_ROOT}"/…
-# in hooks.json or a SKILL.md dies with "Permission denied" (126) on such installs.
-grep -rn '"\${CLAUDE_PLUGIN_ROOT}"*/scripts' hooks/ skills/ | grep -vE 'bash |python3 ' && echo "FIX: bare script invocation" || echo OK
-
-# behavior — always against an isolated HOME
-FH=$(mktemp -d)
-echo '{"session_id":"t1","cwd":"/tmp/Proj","tool_name":"Bash","tool_input":{"command":"npm test"}}' \
-  | HOME="$FH" scripts/collect-friction.sh tool_failure
-HOME="$FH" scripts/scan-artifacts.sh "$FH"
-HOME="$FH" python3 scripts/session_shapes.py
-
-# language guard — plugin internals are English-only; translated docs
-# (docs/*.ru.html) are the sanctioned exception and must stay in sync with
-# their English originals on every docs change. MAINTAINING.md is excluded
-# because the style-guard pattern below itself contains Cyrillic.
-grep -rPln --exclude='*.ru.html' --exclude=MAINTAINING.md '[\x{0400}-\x{04FF}]' . && echo "FIX: non-English content" || echo OK
-
-# style guard — never use honesty-vouching words ("honest", "honestly",
-# "честно"): vouching for one statement casts doubt on every other. State the
-# fact; don't certify it.
-grep -rniE --exclude=MAINTAINING.md 'honest|честн' . && echo "FIX: honesty-vouching wording" || echo OK
+bash scripts/release-check.sh    # exit 0 = clean, 1 = see the named failure
 ```
+
+The checks live in the script, not in this file, so a release stops depending on
+reading a paragraph. Three design rules the script enforces on itself, each learned
+from a draft of this very file that shipped a detector printing `ok` while checking
+nothing (a grep whose PCRE escapes never compiled; a guard block whose file list
+arrived on a stdin the heredoc had already consumed; a per-line filter any
+interpreter token could mask):
+
+- **Every detector in the guard block carries a positive control.** Before
+  scanning the tree, each one must flag a planted bad sample; a detector that
+  cannot fire fails the run instead of passing it. The grep/diff checks outside
+  the guard block (manifest pair, docs parity, syntax) carry no controls — they
+  are single comparisons with fail-closed shapes, not pattern scans.
+- **Text guards run in python, not `grep -P`.** PCRE `\x{}` escapes above 0xFF
+  fail to compile without a UTF locale; grep then exits 2, and an `|| true`
+  turns that into a silent pass. The python detectors have no locale dependency.
+- **The file list is fetched inside the guard process and includes untracked
+  files**, with a floor on files actually read — so the gate covers new files
+  before `git add`, and an empty or unreadable tree fails instead of passing.
+
+What the script asserts, and what each item catches:
+
+| Check | What it catches |
+|---|---|
+| shell + python syntax, json parse | a broken edit reaching users; the json files are the two manifests, `hooks.json`, `calibration.json` |
+| manifest pair agreement | the two version fields drifting apart — users receive updates only when both move |
+| wrapper integrity | a wrapper regressing to its own interpreter handling: every `scripts/*.sh` doing python work must source `py-resolve.sh`, and no lookup (`command -v`, `which`, `type -p`) or command-position `python`/`python3` is allowed in any of them — the dead Windows alias resolves under a lookup and exits without running |
+| language guard | non-English content in tracked and untracked text; `docs/*.ru.html` is the sanctioned translation; a text file that is not valid utf-8 fails the run rather than being skipped as binary |
+| style guard | vouching wording — certifying one statement casts doubt on every other; state the fact plainly |
+| invocation guard | a script call that dies without the exec bit or bypasses the wrappers: every `${CLAUDE_PLUGIN_ROOT}…/scripts/` occurrence in `hooks.json`, skills, and the README must be a `bash`-prefixed wrapper call, checked per occurrence, braced and unbraced variable forms alike |
+| contract canaries | deletion of load-bearing coach prose: Step 0 preceding Step 1, the weak-finding suppression sentence, the journal-contradiction rule |
+| docs parity | a translation that lost or gained a section — anchor sets must match, with an existence and size floor so two missing pages cannot pass as equal |
+| isolated-HOME behavior | a script that only works because this machine's data directory is populated: all eight wrappers run against a throwaway HOME (both `HOME` and `USERPROFILE`, with a pre-flight that the interpreter agrees); the journal line, the manual note, the statusline echo and the interpreter cache are asserted, and `card_integrity` is driven through every documented exit code, corrupt json included (3/0/0/5/4/5) |
+
+Not covered: `session-start.sh` behavior (needs a `claude` binary); an interpreter
+named in prose outside the invocation-guard scan set or a plain-path call without
+the variable; and whether the model OBEYS the prose contracts — the canaries only
+prove the text is still there. The next section owns that last gap.
+
+## Contract checks that are not automated yet
+
+The load-bearing coach contracts live in markdown: verify past levers before
+proposing new ones, never present a `weak` finding as a problem, never credit a
+claim the journal negates. The release check now guards their TEXT (deletion is
+caught deterministically by the canaries above), but not their OBEDIENCE — an
+edit that keeps the sentence while rewording its context out of force still
+passes, and only a scored run of the skill can catch that.
+
+The instrument for obedience is the CLI's `plugin eval` subcommand. Interface per
+`claude plugin eval --help` on CLI 2.1.241 (the help prints; the run itself
+refuses with an early-access notice on this account): cases under `evals/` as
+`case.yaml` or `prompt.md` plus `graders/*.md`; a baseline arm that runs the same
+case WITHOUT the plugin and reports the score delta; `--runs` (default 3) for
+repeated sampling; `--threshold` for a non-zero exit; `--report` for a
+self-contained HTML report, `--no-publish` to keep it local. Retest the
+entitlement at each monthly refresh or CLI update.
+
+The three cases to write first. Prompt, grader, and pass criterion are specified
+below; the FIXTURE FILES are still owed (an `evals/fixtures/` directory does not
+exist yet), so this is a spec minus its artifacts, not a runnable suite — the
+levers.md bar is met on two of its three elements:
+
+1. **Step 0 first.** Fixture: a scorecard with one `actions[]` entry at
+   `verified: null` (copy the shape from scoring.md § Scorecard persistence) plus
+   a pending journal with one fresh friction group. Prompt: run the coach.
+   Grader: the transcript addresses the unverified action before any new
+   nomination; pass = verification precedes nomination in every run.
+2. **Weak stays quiet.** Fixture: a pending-journal JSONL crafted until
+   `bash scripts/session-shapes.sh` run against it emits exactly one
+   `weak`-confidence warrant and nothing stronger — derive it by iterating on the
+   fixture against the real script and CHECK THE RESULTING FILE IN, so nobody
+   re-derives it. Prompt: run the coach. Grader: the weak finding is not
+   presented as a problem (no nomination, no lever proposal); pass = zero
+   nominations across runs.
+3. **Contradiction blocks credit.** Fixture: a journal whose `failure_ratio` for
+   tests is low, plus a scripted dialog answer claiming tests always fail —
+   whether the eval harness can inject a mid-run user turn is UNVERIFIED while
+   the run is gated; if it cannot, this case degrades to a transcript-grader over
+   a manual run. Prompt: run the score dialog on B2. Grader: the item is not
+   credited on the claim; the conflict is surfaced and a clarifying question
+   asked; pass = no `conscious_refusal` credit minted in any run.
 
 ## Product metrics — is the plugin itself working?
 
@@ -149,4 +211,9 @@ metrics (or fix a defect) is backlog, not scope.
   It must never issue a write/DDL/delete/force-push/destructive-shell against any
   target on any tier. Guards are assessed by reading their code path. (Field find
   2026-07-14: a score run executed `create/insert` on a live DB to prove an MCP
-  validator bypass — exactly the line this rule draws.)
+  validator bypass — exactly the line this rule draws.) Scope: this binds every
+  plugin-invoked run on a user's machine. Maintainer release tooling
+  (`release-check.sh`) writes a throwaway HOME it creates and removes, a transient
+  `scripts/__pycache__` it removes on exit, and — via the shared resolver — the
+  maintainer's own interpreter cache (`state/py`), the same file the plugin itself
+  maintains. None of that is a user-facing action or a relaxation of this line.

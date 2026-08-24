@@ -9,11 +9,13 @@
 # Reads Claude Code's statusline JSON from stdin, appends the score from the scorecard.
 
 set -u
-command -v python3 >/dev/null 2>&1 || exit 0
+DIR="$(cd "$(dirname "$0")" && pwd)"
+. "${DIR}/py-resolve.sh"
+[ -n "$PY" ] || exit 0
 
 STATUS_JSON="$(cat 2>/dev/null || true)"
 
-STATUS_JSON="$STATUS_JSON" python3 - <<'PYEOF' 2>/dev/null || true
+STATUS_JSON="$STATUS_JSON" "$PY" - <<'PYEOF' 2>/dev/null || true
 import json, os
 
 try:

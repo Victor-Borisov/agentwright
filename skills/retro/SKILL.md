@@ -53,7 +53,7 @@ patch · T6 wrong lever). Name the most UPSTREAM cause first; a real session oft
 stacks two — lead with the earliest, land one change, not a lecture.
 
 **Cross-check with the journal, don't just trust the dialog.** Run
-`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/session_shapes.py` (add `--archive --days 30` if
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/session-shapes.sh` (add `--archive --days 30` if
 thin). If the pasted account conflicts with a HARD signal — the dialog reads "tests kept
 failing" but `failure_ratio[test].ratio < 0.3`, or "I planned it" but
 `capabilities.plan_mode.used == false` — surface the conflict, don't paper over it
@@ -65,7 +65,7 @@ with its tradeoff.
 
 ### 3. Empty-and-narrating fallback (only if the user had no text to paste)
 
-Run `session_shapes.py`, take the strongest `thrash_sessions` entry, reflect the SHAPE
+Run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/session-shapes.sh`, take the strongest `thrash_sessions` entry, reflect the SHAPE
 non-judgmentally ("55 turns, a 4-failure test burst, ratio 0.83 — that shape usually
 means it looped"), then ask ONE open question — "what were you doing, where did it start
 going in circles?" — and proceed from their answer as in §2 (taxonomy, judgment-first).

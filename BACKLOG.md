@@ -34,9 +34,16 @@ are fixed.
   fixed with `n=${n%%[!0-9]*}`.
 - [x] **[MAJOR] Unquoted `${CLAUDE_PLUGIN_ROOT}` in hooks.json** — space in plugin path
   broke every hook. Now `"${CLAUDE_PLUGIN_ROOT}"`-quoted.
-- [x] **[MAJOR] `python3` not found on Windows Git Bash** silently no-op'd everything;
+- [~] **[MAJOR] `python3` not found on Windows Git Bash** silently no-op'd everything;
   `/log` claimed success while writing nothing. Now falls back `python3 || python`, and
   `log-friction.sh` emits an error + non-zero so the skill can't confirm a phantom write.
+  *(Re-opened in v0.11.4: the fallback probed with `command -v`, which the dead Windows
+  python3 alias satisfies — it resolves on PATH and exits 49 without running — so the
+  fallback never fell back on exactly the machines it was written for; and only the two
+  collectors got it, `scan-artifacts.sh` and `statusline-example.sh` stayed python3-only.
+  What the approval missed: the fallback was approved without ever being executed on a
+  machine where the alias wins. The `/log` loud-failure half held and is what kept the
+  manual path visible.)*
 - [x] **[MINOR] `dict | dict` (3.9+)** → `{**a, **b}` for 3.8 compat.
 - [x] **[MINOR] Unbounded fallback secrets scan** — added 5000-file cap + more skip dirs
   (`dist`/`build`/`target`/…) + `truncated` flag; gitleaks path no longer uses
@@ -100,12 +107,19 @@ are fixed.
 
 ## Done in v0.4.1 (first field bug, 2026-07-13)
 
-- [x] **[BLOCKER] Scripts shipped without the executable bit** — the repo lives on a
+- [~] **[BLOCKER] Scripts shipped without the executable bit** — the repo lives on a
   Windows mount where git records mode 100644, so every hook died with
   "Permission denied" (126) on install. Two-part fix: `git update-index --chmod=+x`
   on all `.sh`, AND every invocation (hooks.json, skills, statusline docs) now goes
   through an explicit `bash`/`python3` so the plugin never depends on the exec bit
   again. Guard added to the MAINTAINING test suite.
+  *(Re-opened in v0.11.4: the invocation fix held, but the guard never fired once —
+  its pattern demanded `/scripts` directly after `}"`, while hooks.json writes the
+  quotes json-escaped and skills write the variable unquoted, so the grep matched
+  zero lines on healthy and broken trees alike, and `grep … && echo FIX || echo OK`
+  exits 0 either way. What the approval missed: the guard was never shown a planted
+  bad case before being trusted. Replaced by a per-occurrence checker with a built-in
+  positive control in release-check.sh.)*
 
 ## Done in v0.4.2 (dogfood findings, 2026-07-14)
 
@@ -332,7 +346,100 @@ statements, so contradiction rests on hard signals (ratio, `capabilities.used`),
   the raw dialog). This is the policy-clean way to reach prompt/approach quality — the
   user brings the material, the plugin never extracts it.
 
-## Open — candidates for v0.5+ (need real usage data or bigger design)
+## Done in v0.11.4 (interpreter resolution + executable release checks, 2026-08-24)
+
+Sourced from a three-critic review (technical / methodology / consistency) of the
+first draft of this release, which itself shipped two inert guards and one vacuous
+scan — the review and a negative-injection run caught them before commit. That
+history is why every detector in release-check.sh now carries a positive control.
+
+- [x] **[BLOCKER] Interpreter probes were satisfied by the dead Windows python3
+  alias** — Windows ships an App Execution Alias named `python3` that resolves under
+  `command -v`, prints a Store advert, and exits 49 without running. Each caller then
+  failed down its own path: `collect-friction.sh` exited 49 with nothing journaled
+  (visible only as a non-blocking hook error, silent at the product level — its
+  `exec … || exit 0` was dead code, exec replaces the shell), `scan-artifacts.sh`
+  exited 49 without even its `{"error":…}` fallback (the lookup had "succeeded"),
+  `statusline-example.sh` went blank with exit 0, and `log-friction.sh` failed LOUD
+  with exit 1 — the one path the v0.4.0 fix genuinely covered. On an install where
+  the alias wins, that is the fact supply of `/score` and the whole journal gone
+  quiet. Fix: shared `scripts/py-resolve.sh` — probes candidates by EXECUTING them
+  (never by PATH lookup), requires python >= 3.8 (a bare `python` may be python2,
+  the codebase is 3.8+), caches the resolved absolute path in `state/py`, and
+  revalidates the cache with a stat, not a spawn. The cache keeps the high-volume
+  hook trivial per MAINTAINING's own cost rule. Recorded bench (10 fires per
+  variant, each journaling under its own session id so lines-written proves who
+  worked): HEAD 841 ms/fire and 0 lines journaled; the retracted per-fire probing
+  draft 1049 ms and 10 lines; the cached resolver 536 ms and 10 lines — faster than
+  HEAD, which pays a spawn on the dead alias and then fails anyway. Absolute times
+  swing with machine load between runs; the ordering and the 0-vs-10 journaling
+  split are the stable facts. The cache also carries the probe DAY (same
+  YYYY-MM-DD marker convention as session-start.sh's once-a-day version check) and
+  re-probes on the first use of a new day, so a shim whose python was downgraded
+  below 3.8 heals within a day; immediate recovery is deleting `state/py`.
+- [x] **[MAJOR] Six skill lines invoked `python3` by name** — `show` (2), `score`
+  (2), `coach` (1), `retro` (1) ran `.py` entry points literally, so on an
+  alias-wins install the deterministic layer of every skill was gone even after the
+  wrapper fix. Added wrappers (`session-shapes.sh`, `card-integrity.sh`,
+  `score-trajectory.sh`, `product-metrics.sh`), pointed the six lines and the README
+  at them, and updated the requirement line in README and both docs pages to
+  "python 3.8+ (found as `python3` or `python`)".
+- [x] **[MAJOR] Release checks lived in prose and their guards were unverified** —
+  `scripts/release-check.sh` now encodes them with an exit code, and the road there
+  is the finding: the prose exec-bit guard had never fired (see the v0.4.1 entry),
+  the first script draft carried the prose language/style patterns whose `\x{}`
+  escapes make `grep -P` exit 2 without a UTF locale (swallowed by `|| true` into a
+  pass), and its guard block read the file list from a stdin the heredoc had already
+  consumed, so it scanned zero files and printed `ok` on the real tree. All
+  detectors now run in python, carry positive controls (a detector that cannot flag
+  a planted bad sample fails the run), the file list has a size floor, docs parity
+  has an existence floor, `card_integrity` is driven through every documented exit
+  code, and a negative-injection run was recorded before the green run was
+  trusted (the log ships with the course-work that drove this release). A second
+  three-critic round against the reworked script then found and fixed four more
+  bypass classes: the unbraced `$CLAUDE_PLUGIN_ROOT` form was invisible to the
+  invocation guard; one invalid utf-8 byte made `errors="strict"` skip a whole
+  file, disarming every text guard for it (now: scan with `errors="replace"`,
+  and an undecodable text file fails the run); untracked files were never
+  scanned (now: tracked plus `--others --exclude-standard`, floor counted on
+  files actually read); and a wrapper regressed to `exec python3` or
+  `which python3` passed everything on a healthy-alias machine (now: the
+  wrapper-integrity check, self-tested). The injection classes verified against
+  the final script: manifest drift; chained bare call in hooks.json; prose bare
+  call in a skill; python3-prefixed skill call; unbraced-variable bare call;
+  Cyrillic in a tracked file; Cyrillic behind an invalid utf-8 byte; Cyrillic in
+  an untracked file; vouching wording; canary deletion; docs anchor drift;
+  `command -v python` in a wrapper; `which python3` replacing the resolver; a
+  fact-supply script degraded to error-json.
+- [x] **[MINOR] Contract canaries** — deletion of load-bearing coach prose (Step 0
+  order, weak-finding suppression, the contradiction rule) is now caught
+  deterministically by release-check; obedience checks remain open below.
+- [x] **[MAJOR] The daily reminder fired every session and the user never saw one**
+  (field find 2026-08-25, reported by the user). SessionStart stdout reaches only
+  the assistant's context, so delivery of the coach-loop entry point depended on
+  the model choosing to relay it — and task-focused sessions swallowed it daily
+  for three weeks (285+ signals accumulated past the reviewed-flag while the
+  alarm "worked"). Deterministic firing, probabilistic delivery. Soft fix shipped:
+  the reminder text now carries an explicit relay instruction to the assistant
+  (repeat the first sentence to the user, suggest the coach, do not drop). This
+  is the rule rung of the ladder — a request, not a guarantee; escalation is the
+  open item below.
+
+## Open — blocked on data, design, or entitlements
+
+- [ ] **[MINOR] Reminder delivery is still a request** — if reviews keep not
+  happening after reminder days (checkable: `flags/reviewed-*` dates versus days
+  the pending journal had pre-today friction), escalate the relay from reminder
+  text to the SessionStart hook's `systemMessage` JSON output, which is meant for
+  display rather than context.
+- [ ] **[MAJOR] Obedience checks for the prose contracts** — the canaries prove the
+  text survives, not that a run obeys it. Instrument: the CLI's `plugin eval`
+  subcommand (interface per `claude plugin eval --help` on CLI 2.1.241; the run
+  itself refuses with an early-access notice on this account — retest at each
+  monthly refresh or CLI update). The three cases are specified (prompt, grader,
+  pass criterion) in MAINTAINING § Contract checks that are not automated yet;
+  the fixture FILES are still owed — `evals/fixtures/` does not exist yet, so the
+  levers.md bar is met on two of three elements.
 
 - [ ] **[MAJOR] Academy module map** — the score skill demands "a specific module," but no
   module index ships → hallucinated names. Build a versioned `references/academy.md`
@@ -362,3 +469,7 @@ statements, so contradiction rests on hard signals (ratio, `capabilities.used`),
   clicks are invisible. The coach leans on `permission_request` rate instead.
 - No transcript access by policy → prompt quality and "wrong approach" are unmeasured by
   design; the plugin measures outcomes, not prose.
+- On installs where the dead python3 alias won the probe before v0.11.4, the journal is
+  empty for that whole period, so trajectory and funnel data are not comparable across
+  the fix: friction "rising" right after 0.11.4 there is collection starting, not the
+  user regressing.

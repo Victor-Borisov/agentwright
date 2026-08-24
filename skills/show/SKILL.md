@@ -17,9 +17,9 @@ in the user's language.
 
 ## Procedure
 
-1. Run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/card_integrity.py check`
+1. Run: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/card-integrity.sh check`
 2. Read `~/.claude/agentwright/scorecard.json`.
-3. Run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/score_trajectory.py` for the trajectory
+3. Run: `bash ${CLAUDE_PLUGIN_ROOT}/scripts/score-trajectory.sh` for the trajectory
    block (sparklines are precomputed — render them verbatim, do not invent glyphs).
 4. Render, honoring the check result:
 

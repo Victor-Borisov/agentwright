@@ -18,7 +18,7 @@ anything new: trust is built on verifying yourself before advising more.
 **Dialog language.** Read `~/.claude/agentwright/config.json`; if `language` is set,
 conduct the entire dialog in it. If missing, ask for the preferred dialog language as
 your first question, merge the answer into the config (`{"v": 1, "language": "<answer>"}`,
-create with python3 if needed, never jq), and continue in it. Artifacts (scorecard,
+create with a python one-liner if needed — if `python3` prints a Store notice, use `python` — never jq), and continue in it. Artifacts (scorecard,
 journal notes) stay English. Data lives in `~/.claude/agentwright/`:
 `pending/pending-YYYY-MM-DD-<session>.jsonl` (friction journal, written by this
 plugin's own hooks), `scorecard.json`, `flags/reviewed-YYYY-MM-DD`.
@@ -50,7 +50,7 @@ you yourself modify — teaching session splitting multiplies sessions and would
 O1 only. Never claim improvement or regression from raw totals.
 
 **Deterministic layer first.** Run
-`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/session_shapes.py` (add `--archive --days 30`
+`bash ${CLAUDE_PLUGIN_ROOT}/scripts/session-shapes.sh` (add `--archive --days 30`
 for Step 0 before/after comparisons) and work from its JSON — per-session shapes,
 failure bursts, cross-session overlaps, normalized totals. Do not re-derive shapes
 from raw JSONL lines.

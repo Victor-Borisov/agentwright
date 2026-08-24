@@ -77,7 +77,7 @@ Full documentation: [victor-borisov.github.io/agentwright](https://victor-boriso
 
 ## Quickstart
 
-Requirements: Claude Code, `bash`, `python3` (`git` and `gitleaks` improve probes).
+Requirements: Claude Code, `bash`, python 3.8+ (found as `python3` or `python`; `git` and `gitleaks` improve probes).
 
 **1. Install** — inside Claude Code, run:
 
@@ -117,7 +117,7 @@ plugin should speak with you (any language works) and remembers the choice in
 Data lives in `~/.claude/agentwright/` (journal, flags, scorecard, archive, state,
 config).
 Delete that directory to reset everything. Curious where you are in the loop?
-`python3 scripts/product_metrics.py` prints your local funnel.
+`bash scripts/product-metrics.sh` prints your local funnel.
 
 Optional: show your score in the statusline — see `scripts/statusline-example.sh`.
 
