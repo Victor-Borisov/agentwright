@@ -35,7 +35,7 @@
         ]
       },
       {
-        "matcher": "EnterPlanMode|ExitPlanMode|EnterWorktree|ExitWorktree|Task|Agent|WebSearch|WebFetch|LSP|mcp__.*",
+        "matcher": "EnterPlanMode|ExitPlanMode|EnterWorktree|ExitWorktree|Task|Agent|WebSearch|WebFetch|LSP|Monitor|mcp__.*",
         "hooks": [
           {
             "type": "command",

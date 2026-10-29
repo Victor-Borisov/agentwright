@@ -89,7 +89,7 @@ Rules:
 - If the friction journal has events, use a real one as the D1 scenario.
 - **Credit observed capabilities without asking** (checklist § D, scoring.md
   § Capability signals). `facts.friction_journal.capabilities_used` lists levers the
-  journal shows in ACTIVE USE: `plan_mode` → D2 landscape, `subagent`/`worktree` →
+  journal shows in ACTIVE USE: `plan_mode` → D2 landscape, `subagent`/`worktree`/`background` →
   D4/D6, `mcp` → C3/landscape. For those, credit the landscape half from the signal
   and probe only judgment; skip the mastery captcha for a lever shown in use. Only
   MODEL choice (D5's model half) and multi-model orchestration stay pure dialog —

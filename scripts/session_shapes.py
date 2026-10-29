@@ -26,6 +26,11 @@ DATA_DIR = os.path.expanduser("~/.claude/agentwright")
 WAVE_GAP_MIN = 45          # a pause >= this long splits activity into waves
 BURST_WINDOW_MIN = 15      # window for same-category failure bursts
 BURST_MIN_FAILURES = 3
+# Idle compaction (Claude Code 2.1.299+) compacts a large conversation after ~54 min
+# of silence, before its prompt cache expires. It arrives as an ordinary PreCompact
+# (trigger "auto"), so it is told apart by the silence before it: a compact with no
+# session event in the preceding IDLE_COMPACT_GAP_MIN is idle, not context pressure.
+IDLE_COMPACT_GAP_MIN = 50
 FRICTION_EVENTS = {"tool_failure", "permission_denied", "compact", "manual"}
 FNAME_RE = re.compile(r"^pending-\d{4}-\d{2}-\d{2}-(?P<suffix>.+)\.jsonl$")
 
@@ -35,8 +40,9 @@ CAP_MAP = {
     "EnterWorktree": "worktree", "ExitWorktree": "worktree",
     "Task": "subagent", "Agent": "subagent",
     "mcp": "mcp", "WebSearch": "web", "WebFetch": "web", "LSP": "lsp",
+    "Monitor": "background",
 }
-ALL_CAPS = ("plan_mode", "subagent", "worktree", "mcp", "web", "lsp")
+ALL_CAPS = ("plan_mode", "subagent", "worktree", "mcp", "web", "lsp", "background")
 HIGH_TURN = 40  # session size that warrants subagent/plan-mode nomination
 THRASH_MIN_FAILS = 3     # a category needs this many failures to count as "stuck"
 THRASH_RATIO = 0.6       # failures/(failures+successes) above this = going in circles
@@ -105,8 +111,13 @@ def shape_of(key, entries):
     caps = set()      # capabilities demonstrably used this session
     effort = ""
     pmode = ""
+    prev_ts = None
     for e in entries:
         ev = str(e.get("event", "unknown"))
+        if ev == "compact" and prev_ts is not None \
+                and (e["_ts"] - prev_ts) >= timedelta(minutes=IDLE_COMPACT_GAP_MIN):
+            ev = "idle_compact"  # not friction; excluded from compact-based detectors
+        prev_ts = e["_ts"]
         counts[ev] = counts.get(ev, 0) + 1
         cat = str(e.get("category", "")) if e.get("category") else ""
         if ev == "tool_failure" and cat:
@@ -293,7 +304,7 @@ def main():
                          "bypass_sessions": bypass, "total_sessions": len(shapes),
                          "confidence": "strong" if bypass == len(shapes) else "medium"})
     big = [s for s in shapes if s["events"].get("turn", 0) >= HIGH_TURN]
-    if big and not capabilities["subagent"]["used"]:
+    if big and not capabilities["subagent"]["used"] and not capabilities["background"]["used"]:
         conf = "medium" if any(s["events"].get("compact", 0) >= 2 for s in big) else "weak"
         warrants.append({"lever": "subagent", "reason": "high_turn_sessions",
                          "sessions": [s["session"] for s in big], "confidence": conf})

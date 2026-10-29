@@ -425,6 +425,47 @@ history is why every detector in release-check.sh now carries a positive control
   is the rule rung of the ladder — a request, not a guarantee; escalation is the
   open item below.
 
+## Done in v0.12.0 (knowledge refresh 2.1.210 → 2.1.312, knowledge v6, 2026-10-30)
+
+First sweep since 2026-07-14: 102 releases, 426 "Added" entries triaged; no change to
+the payloads of the eight collected hook events.
+- [x] **[MAJOR] Idle compaction faked O1's mandatory conjunct** — since CC 2.1.299 a
+  200K+ conversation idle ~54 min is compacted as ordinary `PreCompact` `trigger:auto`;
+  "two waves + compaction" became the lunch-break false positive O1 was built to avoid.
+  `session_shapes.py` now reports a compact preceded by >= 50 min of session silence as
+  `idle_compact` (outside friction totals, O1/O3, L7's metric). O1 rescoped.
+- [x] **[MAJOR] A1 ignored AGENTS.md** — CC 2.1.277 reads AGENTS.md when no CLAUDE.md
+  exists; the probe now falls back to it (`claude_md.source`). A1 rescoped.
+- [x] **[MAJOR] Staleness notice was blind to patches** — compared major.minor only and
+  stayed silent through 100+ 2.1.x releases. Now: newer minor, >= 25 patches ahead, or
+  calibration older than 45 days; `calibrated_for_claude_code` holds the full version.
+  Same rule in `session-start.sh` and `scan_artifacts.py`.
+- [x] S3 rescoped: Bash sandboxing (`sandbox.enabled`, filesystem isolation on) counts as
+  narrowing, alongside a deny-list; scan reports `settings.sandbox`.
+- [x] L5: guard hooks carry `onFailure: "block"` (CC 2.1.295) + a broken-guard proof
+  test; scan reports `pretooluse_fail_open`; S5 stays `present` with a growth note.
+- [x] L4 offers auto mode (`/auto-mode-setup`, `/permissions` Auto mode tab) beside lists.
+- [x] L9 harness pruning (`/skill-doctor`, `/doctor prompt-audit`) → E2.
+- [x] Monitor tool → `background` capability (O3 suppression, D6 landscape credit).
+- [x] O1 teaches resume re-cache cost; O11/D5 teach per-turn (`ultrathink`) and
+  per-subagent effort.
+
+Skipped this sweep, with reasons: IDE/Claude Tag/gateway/managed-settings/OTel/
+self-hosted runner (not user harness maturity); new models (model stays dialog, O9);
+Claude Mods API (plugin-author surface — revisit if mods go mainstream); cross-session
+`SendMessage`, routines (niche/cloud).
+
+- [ ] **[QUESTION] S5 cap for fail-open guards** — v6 only notes it. Next sweep: decide
+  whether a PreToolUse guard without `onFailure: "block"` becomes `partial` (cap 84),
+  once the field has been out long enough that not knowing it is a landscape gap.
+- [ ] **[IDEA] `PostModelSwitch` (CC 2.1.251) could make model-per-task observable** —
+  D5's model half is dialog-only because model never appears in metadata. Needs a
+  privacy check (model ids are public vocabulary) and the add-a-signal checklist.
+- [ ] **[MINOR] Session-start alarm counts raw `compact` lines** — its grep cannot see
+  timing, so idle compactions still inflate the "N friction signals" count in the
+  reminder (the coach's own numbers are correct). Fix needs the alarm to stop counting
+  `compact`, or a derived count.
+
 ## Open — blocked on data, design, or entitlements
 
 - [ ] **[MINOR] Reminder delivery is still a request** — if reviews keep not

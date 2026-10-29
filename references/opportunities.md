@@ -44,12 +44,19 @@ builds on everything before it.
 ≥ 45 min) AND `compacts ≥ 1`. The compaction conjunct is MANDATORY: context
 pollution is the harm being taught, and it is directly observed — without it,
 "two waves with a gap" is just a workday with a lunch break, and a false first
-nomination would burn this detector via the dismissal memory. Confidence up if
+nomination would burn this detector via the dismissal memory. Only compactions
+WITHOUT a ≥ 50 min silence before them count (rescoped in v6): since Claude Code
+2.1.299, idle compaction compacts a large conversation after ~54 idle minutes to save
+the prompt cache — that is the lunch break again, not pollution. `session_shapes`
+already reports those as `idle_compact`, outside `compact`. Confidence up if
 turns ≥ 25.
 **Question:** "Session X ran 7h in two waves with a compaction between — was that
 more than one task? Separate sessions keep each task's context clean: `/clear`
 between tasks, or a new session per task (the old one stays resumable with
-`--resume`), or `/compact` with focus instructions if the history matters."
+`--resume`), or `/compact` with focus instructions if the history matters.
+Resuming a long idle session also re-caches all of it — on Pro/Max that can be a
+noticeable share of the 5-hour limit, so a fresh session that refers back is
+often cheaper."
 **On adoption:** rule in user CLAUDE.md ("start unrelated tasks with /clear") — L6;
 re-detect via falling wave/compact rates.
 
@@ -74,8 +81,9 @@ stashing, no collisions. Costs: disk and a one-time habit."
 or block the conversation.
 **Not when:** short interactive tasks — orchestration overhead exceeds the win.
 **Signature:** sessions with `turns ≥ 40`, or `compacts ≥ 2` in a single session,
-AND `capabilities.subagent.used == false` (precomputed in `unused_lever_warrants`,
-`lever: subagent`). If `subagent.used` is true, don't nominate — credit landscape.
+AND `capabilities.subagent.used == false` AND `capabilities.background.used == false`
+(the Monitor tool, new in v6) (precomputed in `unused_lever_warrants`,
+`lever: subagent`). If either is true, don't nominate — credit landscape.
 **Question:** "Session X hit N turns and compacted twice. Wide exploration and long
 runs can go to a subagent (own context, returns only the conclusion) or a background
 task — the main session stays lean. Costs: you review a summary instead of watching
@@ -143,8 +151,9 @@ different shape (some `turns ≥ 40`, some tiny). Effort IS observable (`effort.
 in the hook payload); MODEL is not (never in metadata — model-per-task stays a
 `/score` dialog item, O9).
 **Question:** "You ran everything at `high` effort this week, including short
-sessions. Effort can be dialed per task (`/effort`): low for quick edits, max for
-hard multi-step problems. Was that deliberate?"
+sessions. Effort can be dialed per task (`/effort`, or `/effort s` for this session only),
+per turn (`ultrathink` raises one turn to xhigh), and per subagent: low for quick
+edits, max for hard multi-step problems. Was that deliberate?"
 
 ## O12 · Configured MCP that is never used
 
@@ -171,7 +180,7 @@ adopted/taught/dismissed lifecycle.
 ## Capability signals — positive credit, not just gaps
 
 The same `capabilities` map that powers absence-nomination also CONFIRMS competence:
-when `plan_mode` / `subagent` / `worktree` / `mcp` / `lsp` shows `used: true`, the
+when `plan_mode` / `subagent` / `worktree` / `mcp` / `lsp` / `background` shows `used: true`, the
 user demonstrably knows and reaches for that lever. That is direct evidence for the
 landscape axis — the `/score` dialog should credit it WITHOUT asking, and the
 mastery captcha (scoring.md) may be skipped for a lever the journal shows in active

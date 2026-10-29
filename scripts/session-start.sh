@@ -64,16 +64,36 @@ CC_VER=""
 if [ -n "$CC_VER" ] && [ ! -f "${FLAG_DIR}/staleness-${CC_VER}" ]; then
   CAL_FILE="${SCRIPT_DIR}/../references/calibration.json"
   CAL_VER="$(grep -o '"calibrated_for_claude_code"[[:space:]]*:[[:space:]]*"[0-9][0-9.]*"' "$CAL_FILE" 2>/dev/null | grep -o '[0-9][0-9.]*' | head -1)"
-  cc_major="${CC_VER%%.*}"; cc_rest="${CC_VER#*.}"; cc_minor="${cc_rest%%.*}"
-  cal_major="${CAL_VER%%.*}"; cal_rest="${CAL_VER#*.}"; cal_minor="${cal_rest%%.*}"
+  cc_major="${CC_VER%%.*}"; cc_rest="${CC_VER#*.}"; cc_minor="${cc_rest%%.*}"; cc_patch="${cc_rest#*.}"
+  cal_major="${CAL_VER%%.*}"; cal_rest="${CAL_VER#*.}"; cal_minor="${cal_rest%%.*}"; cal_patch="${cal_rest#*.}"
+  [ "$cal_patch" = "$cal_rest" ] && cal_patch=0   # legacy "2.1" calibration = 2.1.0
   ok=true
-  for n in "$cc_major" "$cc_minor" "$cal_major" "$cal_minor"; do
+  for n in "$cc_major" "$cc_minor" "$cc_patch" "$cal_major" "$cal_minor" "$cal_patch"; do
     case "$n" in ''|*[!0-9]*) ok=false ;; esac
   done
-  if [ "$ok" = true ] && [ "$CC_VER" != "${CC_VER#*.*.}" ] 2>/dev/null \
-     && [ $((cc_major * 1000 + cc_minor)) -gt $((cal_major * 1000 + cal_minor)) ]; then
+  # Stale when Claude Code is a newer major.minor, or >= STALE_PATCHES patch releases
+  # ahead (2.1.x shipped 100+ feature-bearing patches), or the calibration is older
+  # than STALE_DAYS. Age check needs GNU or BSD date; if neither parses, it is skipped.
+  STALE_PATCHES=25; STALE_DAYS=45
+  stale=false
+  if [ "$ok" = true ]; then
+    if [ $((cc_major * 1000 + cc_minor)) -gt $((cal_major * 1000 + cal_minor)) ]; then
+      stale=true
+    elif [ $((cc_major * 1000 + cc_minor)) -eq $((cal_major * 1000 + cal_minor)) ] \
+         && [ $((cc_patch - cal_patch)) -ge "$STALE_PATCHES" ]; then
+      stale=true
+    elif [ "$((10#${cc_patch}))" -gt "$((10#${cal_patch}))" ]; then
+      CAL_DATE="$(grep -o '"calibrated_on"[[:space:]]*:[[:space:]]*"[0-9-]*"' "$CAL_FILE" 2>/dev/null | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)"
+      cal_s="$(date -d "$CAL_DATE" +%s 2>/dev/null || date -j -f %Y-%m-%d "$CAL_DATE" +%s 2>/dev/null)"
+      now_s="$(date +%s)"
+      case "$cal_s" in ''|*[!0-9]*) ;; *)
+        [ $(( (now_s - cal_s) / 86400 )) -ge "$STALE_DAYS" ] && stale=true ;;
+      esac
+    fi
+  fi
+  if [ "$stale" = true ]; then
     mkdir -p "$FLAG_DIR" 2>/dev/null && : > "${FLAG_DIR}/staleness-${CC_VER}" 2>/dev/null
-    echo "Agentwright: your Claude Code is ${CC_VER}, but this plugin's knowledge base is calibrated for ${CAL_VER}.x — recently added capabilities may be missing from the checklist. Consider updating the plugin."
+    echo "Agentwright: your Claude Code is ${CC_VER}, but this plugin's knowledge base is calibrated for ${CAL_VER} — recently added capabilities may be missing from the checklist. Consider updating the plugin."
   fi
 fi
 

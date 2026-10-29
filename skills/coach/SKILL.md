@@ -31,10 +31,11 @@ Each JSONL line: `{v, ts, event, project, tool?, category?, note?, effort?}`.
 |---|---|---|
 | `tool_failure` | A tool call failed; for Bash, `category` ∈ test/lint/build/install/git/other | friction |
 | `tool_success` | A Bash call SUCCEEDED in a tracked category — the denominator for `failure_ratio` (busy day ≠ bad day) | rate denominator |
-| `tool_use` | A landscape lever was used; `tool` → capability (plan_mode/subagent/worktree/mcp/web/lsp) | capability signal (credit + absence) |
+| `tool_use` | A landscape lever was used; `tool` → capability (plan_mode/subagent/worktree/mcp/web/lsp/background) | capability signal (credit + absence) |
 | `session_start` | Session began; carries `effort` level and `pmode` (permission mode) | effort signal (O11); `pmode` → habitual `bypassPermissions` is an S3 symptom to ask about |
 | `permission_denied` | Denied by the AUTO-mode classifier only — users in default mode clicking "No" produce NO event; treat absence as no-signal, not as no-denials | friction |
 | `compact` | Context was compacted mid-session | friction |
+| `idle_compact` | Derived by `session_shapes` (never in raw journal lines): a `compact` preceded by >= 50 min of session silence — Claude Code 2.1.299+ idle compaction, done to save the prompt cache, not context pressure | neither friction nor an O1/O3 compaction; report only if asked |
 | `manual` | User-authored note (via /agentwright:log) — their own words in `note` | friction, highest signal |
 | `permission_request` | Permission dialog shown | rate signal: high rate = tuning friction (L4) |
 | `turn` | User submitted a prompt | denominator |

@@ -38,7 +38,8 @@ you triage and draft.
    teaches.
 
 4. **On approval, bump the contract** (per `MAINTAINING.md` versioning table):
-   - `calibration.json`: update `calibrated_for_claude_code`, `calibrated_on`;
+   - `calibration.json`: update `calibrated_for_claude_code` (the FULL version swept
+     to, e.g. `2.1.312` — the staleness notice counts patch releases), `calibrated_on`;
      increment `knowledge_version` IF any checklist / levers / opportunities items
      were added, removed, or rescoped (not checklist-only — a levers- or
      opportunities-only change still bumps it, or the evolution contract is bypassed).

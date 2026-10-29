@@ -1,6 +1,6 @@
 # Agentwright Checklist
 
-**Knowledge version: 5 · calibrated for Claude Code 2.1.x** (see
+**Knowledge version: 6 · calibrated for Claude Code 2.1.312** (see
 `calibration.json`). Items added in later knowledge versions must carry a
 `(new in vN)` marker until scored once — the score report treats them as "the bar
 moved", never as user regression (see scoring.md § Evolution contract).
@@ -38,9 +38,9 @@ Cost: `HIGH` = security / built into the harness / irreversible → oversight ex
 |---|---|---|---|---|
 | S1 | No secrets in repo files or git history | X | HIGH | `repo.secrets` (gitleaks or patterns) |
 | S2 | secret-shaped files are git-ignored (`.env`, keys, certs) — any ignore source counts for the user, committed `.gitignore` for the project (rescoped in v2) | X | HIGH | `repo.env_ignore` (effective, any source) / `repo.gitignore_env_covered` (committed) |
-| S3 | Permissions narrowed: deny-list on destructive commands exists; no `allow: ["*"]`; not living in `bypassPermissions` | X | HIGH | `user.settings` + `project_level.settings`; journal `permission_request` rate (tuning quality) + `pmode_levels` — habitual `bypassPermissions` is an OBSERVED symptom to ask about (may be a conscious isolated-container choice → refusal, not a finding) |
+| S3 | Permissions narrowed: deny-list on destructive commands exists, OR Bash sandboxing is on (`sandbox.enabled`, filesystem isolation not disabled — OS-level narrowing counts) (rescoped in v6); no `allow: ["*"]`; not living in `bypassPermissions` | X | HIGH | `user.settings` + `project_level.settings` (`deny_count`, `sandbox.*`); journal `permission_request` rate (tuning quality) + `pmode_levels` — habitual `bypassPermissions` is an OBSERVED symptom to ask about (may be a conscious isolated-container choice → refusal, not a finding) |
 | S4 | MCP tokens via env vars, not plaintext; servers of known origin | X | HIGH | `*.mcp.plaintext_secret_suspect` |
-| S5 | Destructive-command guard (deny rules or PreToolUse hook for `rm -rf`, force-push, `DROP TABLE` / SQL writes) — user artifacts cap the user; environmental privilege (e.g. DB `db_owner`) caps the project (rescoped in v3) | X | HIGH | settings deny entries / hooks / self-authored MCP guard source |
+| S5 | Destructive-command guard (deny rules or PreToolUse hook for `rm -rf`, force-push, `DROP TABLE` / SQL writes) — user artifacts cap the user; environmental privilege (e.g. DB `db_owner`) caps the project (rescoped in v3). A PreToolUse guard without `onFailure: "block"` (CC 2.1.295+) fails OPEN when it crashes or times out — still `present`, but always a growth-plan note (new in v6) | X | HIGH | settings deny entries / hooks (`pretooluse_fail_open`) / self-authored MCP guard source |
 
 **Security gate:** any *user-controllable* S item at `absent` with an actual live
 finding (e.g. real secret found) caps the total score at **59** (below Builder). A
@@ -58,7 +58,7 @@ the cap explicitly and put fixing it first in the growth plan.
 
 | ID | Item | Axis | Cost | Probe |
 |---|---|---|---|---|
-| A1 | Project CLAUDE.md exists and is substantive (not generic platitudes; >10 lines or uses @imports) | X | CHEAP | `project_level.claude_md` + read it |
+| A1 | Project CLAUDE.md — or AGENTS.md, which Claude Code reads when no CLAUDE.md exists — exists and is substantive (not generic platitudes; >10 lines or uses @imports) (rescoped in v6) | X | CHEAP | `project_level.claude_md` (`source` names the file) + read it |
 | A2 | User-level CLAUDE.md with personal conventions | X | CHEAP | `user.claude_md` |
 | A3 | Lessons captured into persistent artifacts (memory files, dated rules) | X | CHEAP | `user.memory_files` |
 
@@ -93,15 +93,15 @@ judgment. Only MODEL choice and multi-model orchestration remain purely dialog-b
 | D2 | Uses plan mode as the entry point for non-trivial multi-file tasks — or credited refusal | J | CHEAP | `capabilities.plan_mode` + `unused_lever_warrants` (O10) |
 | D3 | Knows the guarantee ladder: rule (wish) → hook (guarantee, costs latency) → CI (hard gate, costs cycle time) — demonstrated by D1-style answers, not recitation | L | CHEAP | dialog |
 | D4 | Manages context deliberately (/clear between tasks, compact awareness, subagent isolation for big searches) | L+J | CHEAP | `compact` rate + `capabilities.subagent` |
-| D5 | Assigns models/effort by task (premium/max for hard, small/low for routine) — or credited refusal | J | CHEAP | `effort_distribution` (O11); model stays dialog |
-| D6 | Uses parallelism when appropriate (worktrees, background agents) — or credited refusal | L | CHEAP | `capabilities.worktree`/`subagent` (O2/O3) |
+| D5 | Assigns models/effort by task (premium/max for hard, small/low for routine; effort can also be set per turn with `ultrathink` and per subagent) — or credited refusal | J | CHEAP | `effort_distribution` (O11); model stays dialog |
+| D6 | Uses parallelism when appropriate (worktrees, background agents, Monitor) — or credited refusal | L | CHEAP | `capabilities.worktree`/`subagent`/`background` (O2/O3) |
 
 ## E — Oversight (only at HIGH-cost points)
 
 | ID | Item | Axis | Cost | Probe |
 |---|---|---|---|---|
 | E1 | Reviews artifacts that embed into the harness (hooks, permission changes, MCP configs) before applying; consciously skips review of cheap one-offs | O+J | HIGH | dialog + coach-loop behavior |
-| E2 | Periodically prunes the harness: notices rules/hooks that false-positive and removes them | O | HIGH | dialog + journal evidence |
+| E2 | Periodically prunes the harness: notices rules/hooks that false-positive and removes them; unused skills and prompts written for older models count too (`/skill-doctor`, `/doctor prompt-audit` — lever L9) | O | HIGH | dialog + journal evidence |
 
 ## F — Effect (needs history; scored from the 2nd run onward)
 

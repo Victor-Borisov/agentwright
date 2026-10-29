@@ -74,8 +74,12 @@ destructive, allow-list frees the routine read-only.
 **Costs:** one-time analysis; too-broad allow = a hole (this is a HIGH/security lever —
 always reviewed).
 
-Procedure, not a file: run the built-in `/fewer-permission-prompts` skill, or add to
-user/project `settings.json`:
+Procedure, not a file. Two routes — present both with their tradeoff:
+- **Auto mode** (the classifier decides, prompts only on risk): run `/auto-mode-setup`
+  to teach it the project's environment; review and edit its rules in the Auto mode
+  tab of `/permissions`. Costs: you trust a classifier instead of a list you wrote.
+- **Lists** (you decide, deterministic): run the built-in `/fewer-permission-prompts`
+  skill, or add to user/project `settings.json`:
 ```json
 {
   "permissions": {
@@ -95,8 +99,16 @@ near-miss manual note ("almost nuked the folder").
 **Costs:** occasional false positive on legitimate commands — keep patterns narrow.
 
 Artifact: deny rules as in L4, or a PreToolUse hook returning
-`{"hookSpecificOutput": {"permissionDecision": "deny", ...}}` for matched patterns.
-**Proof test:** each guarded pattern actually blocks; a harmless neighbor command passes.
+`{"hookSpecificOutput": {"permissionDecision": "deny", ...}}` for matched patterns. A
+guard hook MUST carry `"onFailure": "block"` (Claude Code 2.1.295+): without it a guard
+that crashes, fails to start, or times out lets the call through — a guarantee that
+fails open is a wish.
+```json
+{ "type": "command", "command": "<guard script>", "onFailure": "block" }
+```
+**Proof test:** each guarded pattern actually blocks; a harmless neighbor command passes;
+and with the guard script temporarily broken (bad path), the guarded command is still
+blocked — then restore.
 **Expected effect:** `S5 present; zero destructive incidents (this lever is insurance — verified by non-events)`.
 
 ## L6 · CLAUDE.md rule
@@ -122,7 +134,8 @@ big searches if it recurs.
 
 Artifact: user-level CLAUDE.md rule ("Start unrelated tasks with /clear"), plus using
 subagents for wide exploration instead of dumping files into the main context.
-**Expected effect:** `compact rate per 100 turns drops`.
+**Expected effect:** `compact rate per 100 turns drops` (`idle_compact` is excluded —
+idle compaction measures pauses, not context pressure).
 
 ## L8 · Blocking CI gate
 
@@ -135,6 +148,21 @@ Artifact: `.github/workflows/ci.yml` running tests/lint with `required` status c
 enabled on the branch.
 **Proof test:** a PR with a failing test must show a red, merge-blocking check.
 **Expected effect:** `checklist B3 present; post-merge failure notes disappear`.
+
+## L9 · Harness pruning (new in v6)
+
+**Friction signature:** many skills/rules accumulated over months; a skill never
+triggers; CLAUDE.md or skills written for an older model (all-caps warnings, repeated
+"IMPORTANT", over-specified steps); the user never pruned (checklist E2 `absent`).
+**Guarantees:** a leaner always-on context and instructions tuned to the current
+model. **Costs:** an hour of review; removing a skill someone still relies on.
+
+Procedure, not a file: run `/skill-doctor` (which loaded skills go unused, what each
+costs in context) and `/doctor prompt-audit` (CLAUDE.md files, skills, agents, and
+commands checked for patterns written for older models). Remove or rewrite what they
+flag — the user decides each item; the report is evidence, not a verdict.
+**Proof test:** re-run both; the removed or rewritten items no longer appear.
+**Expected effect:** `E2 present; unused-skill count in /skill-doctor drops`.
 
 ---
 

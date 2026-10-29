@@ -337,7 +337,8 @@ best-explained one, not the worst.
 In both cases append to `history[]` with the new official score and the
 `checklist_version` alongside.
 
-Staleness: if the facts JSON reports the running Claude Code major.minor is ahead
-of `calibrated_for_claude_code`, say so in the report header: the checklist may be
+Staleness: if the facts JSON reports `calibration.stale` (the running Claude Code is
+a newer major.minor, ≥ 25 patch releases ahead of `calibrated_for_claude_code`, or
+any patch ahead of a calibration older than 45 days), say so in the report header: the checklist may be
 missing recently added capabilities, so the score is a floor of the landscape, not
 the ceiling — and suggest updating the plugin.

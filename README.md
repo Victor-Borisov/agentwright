@@ -15,8 +15,10 @@ and always explains why. Top band: **Agent Architect**.
   diagnose, not just count pain: Bash failures **and successes** with a locally derived
   category (test / lint / build / install / git — so a failure *ratio* exists, not a
   raw count that punishes a busy day); permission prompts and denials; context
-  compactions; which capability levers you reach for (plan mode, subagents, worktrees,
-  MCP, web, LSP — the tool name only); the session effort level and permission mode
+  compactions (idle compactions — Claude Code compacting a long-idle session to save
+  its prompt cache — are told apart by the silence before them and not counted as
+  friction); which capability levers you reach for (plan mode, subagents, worktrees,
+  MCP, web, LSP, Monitor — the tool name only); the session effort level and permission mode
   (habitual `bypassPermissions` is worth surfacing); and turn/session markers as
   denominators. Only event kind, a safe tool label, category, project name,
   effort level, permission mode and timestamp are stored — never command text, prompts, or outputs, and
@@ -125,7 +127,8 @@ Optional: show your score in the statusline — see `scripts/statusline-example.
 
 Claude Code grows fast; Agentwright is built for that. The knowledge base
 (checklist, levers, opportunities) is versioned and calibrated against a specific
-Claude Code release — when yours is newer, the plugin says so once and the score
+Claude Code release — when yours is a newer minor, 25+ patch releases ahead, or the
+calibration is over 45 days old, the plugin says so once and the score
 report treats missing new capabilities as "the bar moved", never as your
 regression. Maintainers: see `MAINTAINING.md` and `/agentwright:refresh`.
 

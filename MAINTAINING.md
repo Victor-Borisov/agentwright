@@ -19,7 +19,7 @@ silently drop a finding — mark it `[x]` with the version or move it to "known 
 | Plugin version | `.claude-plugin/plugin.json` | any release (semver: knowledge additions = minor, fixes = patch) |
 | Marketplace entry version | `.claude-plugin/marketplace.json` | in lockstep with the plugin version, same commit — release-check fails on drift, and the CLI's `plugin tag` subcommand validates the pair at tag time |
 | `knowledge_version` | `references/calibration.json` | checklist/levers/opportunities items added, removed, or rescoped |
-| `calibrated_for_claude_code` | `references/calibration.json` | after each changelog sweep, even if nothing was added |
+| `calibrated_for_claude_code` | `references/calibration.json` | after each changelog sweep, even if nothing was added — full version (`2.1.312`), since the notice counts patches |
 | Scorecard `checklist_version` | written by the score skill | follows `knowledge_version` |
 
 The score report is contractually obliged (scoring.md § Evolution contract) to split
@@ -27,6 +27,12 @@ deltas into "your changes" vs "the bar moved" whenever `checklist_version` chang
 never ship a knowledge update without that machinery intact.
 
 ## Monthly refresh (or when the staleness notice fires)
+
+The notice (`session-start.sh`, mirrored as `calibration.stale` in `scan_artifacts.py`
+— keep the two rules identical) fires once per Claude Code version when it is a newer
+major.minor, ≥ 25 patch releases ahead, or any patch ahead of a calibration older than
+45 days. It used to compare major.minor only and stayed silent through 100+ 2.1.x
+releases.
 
 Run `/agentwright:refresh` in a session started with `--plugin-dir` on this repo.
 It fetches the official changelog, triages new capabilities (what pain does it
@@ -145,7 +151,10 @@ refuses with an early-access notice on this account): cases under `evals/` as
 case WITHOUT the plugin and reports the score delta; `--runs` (default 3) for
 repeated sampling; `--threshold` for a non-zero exit; `--report` for a
 self-contained HTML report, `--no-publish` to keep it local. Retest the
-entitlement at each monthly refresh or CLI update.
+entitlement at each monthly refresh or CLI update. The 2.1.269 changelog lists the
+subcommand as shipped, and 2.1.299 added `--disallow-tools` / a `disallowed_tools` case
+field; on 2.1.312 `--help` prints, the run itself was not retried in the 2026-10-30
+sweep (it spends tokens) — retry it by hand.
 
 The three cases to write first. Prompt, grader, and pass criterion are specified
 below; the FIXTURE FILES are still owed (an `evals/fixtures/` directory does not

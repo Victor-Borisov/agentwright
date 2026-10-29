@@ -26,6 +26,8 @@ from datetime import datetime, timezone
 HOME = os.path.expanduser("~")
 CLAUDE_DIR = os.path.join(HOME, ".claude")
 DATA_DIR = os.path.join(CLAUDE_DIR, "agentwright")
+STALE_PATCHES = 25  # mirrors scripts/session-start.sh
+STALE_DAYS = 45
 STATE_DIR = os.path.join(DATA_DIR, "state")
 SECRETS_CACHE = os.path.join(STATE_DIR, "secrets-cache.json")
 
@@ -61,6 +63,20 @@ def settings_facts(path):
     perms = data.get("permissions", {}) or {}
     allow = perms.get("allow", []) or []
     mode = perms.get("defaultMode") or data.get("defaultMode")
+    hooks = data.get("hooks", {}) or {}
+    sandbox = data.get("sandbox", {}) or {}
+    if not isinstance(sandbox, dict):
+        sandbox = {}
+    network = sandbox.get("network", {}) or {}
+    filesystem = sandbox.get("filesystem", {}) or {}
+    # PreToolUse guards without onFailure "block" (CC 2.1.295+) let the tool call
+    # through when the hook crashes, fails to start, or times out (S5 growth note).
+    fail_open = 0
+    for group in hooks.get("PreToolUse", []) or []:
+        for h in (group.get("hooks", []) if isinstance(group, dict) else []) or []:
+            if isinstance(h, dict) and h.get("type") in ("command", "http") \
+                    and h.get("onFailure") != "block":
+                fail_open += 1
     return {
         "exists": True,
         "deny_count": len(perms.get("deny", []) or []),
@@ -68,7 +84,13 @@ def settings_facts(path):
         "allow_star": "*" in allow,
         "default_mode": mode,
         "bypass_permissions": mode == "bypassPermissions",
-        "hooks_events": sorted((data.get("hooks", {}) or {}).keys()),
+        "hooks_events": sorted(hooks.keys()),
+        "pretooluse_fail_open": fail_open,
+        "sandbox": {
+            "enabled": sandbox.get("enabled") is True,
+            "strict_network": isinstance(network, dict) and network.get("strictAllowlist") is True,
+            "filesystem_disabled": isinstance(filesystem, dict) and filesystem.get("disabled") is True,
+        },
     }
 
 
@@ -87,6 +109,17 @@ def claude_md_facts(path):
         "bytes": len(text.encode("utf-8")),
         "imports": sum(1 for line in text.splitlines() if line.startswith("@")),
     }
+
+
+def project_instructions_facts(directory):
+    """Claude Code reads AGENTS.md when a project has no CLAUDE.md (CC 2.1.277+)."""
+    facts = claude_md_facts(os.path.join(directory, "CLAUDE.md"))
+    if facts.get("exists"):
+        return {**facts, "source": "CLAUDE.md"}
+    alt = claude_md_facts(os.path.join(directory, "AGENTS.md"))
+    if alt.get("exists"):
+        return {**alt, "source": "AGENTS.md"}
+    return facts
 
 
 def mcp_facts_from_servers(servers):
@@ -338,7 +371,7 @@ def workspace_facts(root):
     def build(nc):
         name, path = nc
         return {"name": name, "path": path, **repo_facts(path),
-                "claude_md": claude_md_facts(os.path.join(path, "CLAUDE.md"))}
+                "claude_md": project_instructions_facts(path)}
 
     # Parallel — secrets scanning is I/O-bound (subprocess / file reads), so threads
     # give real speedup; ex.map preserves candidate order.
@@ -367,7 +400,7 @@ def main():
     project_level = {
         "settings": settings_facts(os.path.join(proj, ".claude", "settings.json")),
         "settings_local": settings_facts(os.path.join(proj, ".claude", "settings.local.json")),
-        "claude_md": claude_md_facts(os.path.join(proj, "CLAUDE.md")),
+        "claude_md": project_instructions_facts(proj),
         "skills": len(glob.glob(os.path.join(proj, ".claude", "skills", "**", "SKILL.md"), recursive=True)),
         "commands": len(glob.glob(os.path.join(proj, ".claude", "commands", "**", "*.md"), recursive=True)),
         "agents": count(os.path.join(proj, ".claude", "agents", "*.md")),
@@ -387,7 +420,8 @@ def main():
     CAP_MAP = {"EnterPlanMode": "plan_mode", "ExitPlanMode": "plan_mode",
                "EnterWorktree": "worktree", "ExitWorktree": "worktree",
                "Task": "subagent", "Agent": "subagent", "mcp": "mcp",
-               "WebSearch": "web", "WebFetch": "web", "LSP": "lsp"}
+               "WebSearch": "web", "WebFetch": "web", "LSP": "lsp",
+               "Monitor": "background"}
     pending_files = sorted(glob.glob(os.path.join(DATA_DIR, "pending", "*.jsonl")))
     events_by_type = {}
     categories = {}          # tool_failure categories (unchanged meaning)
@@ -444,15 +478,28 @@ def main():
     if cal and "__parse_error__" not in cal:
         calibration["knowledge_version"] = cal.get("knowledge_version")
         calibration["calibrated_for_claude_code"] = cal.get("calibrated_for_claude_code")
+        calibration["calibrated_on"] = cal.get("calibrated_on")
     try:
         with open(os.path.join(DATA_DIR, "state", "cc-version"), encoding="utf-8") as f:
             calibration["last_seen_claude_code"] = f.read().strip()
     except Exception:
         pass
+    # Same rule as session-start.sh: newer major.minor, or >= STALE_PATCHES patch
+    # releases ahead, or (any patch ahead and) calibration older than STALE_DAYS.
     try:
-        seen = [int(x) for x in str(calibration["last_seen_claude_code"]).split(".")[:2]]
-        cal_v = [int(x) for x in str(calibration["calibrated_for_claude_code"]).split(".")[:2]]
-        calibration["stale"] = (seen[0] * 1000 + seen[1]) > (cal_v[0] * 1000 + cal_v[1])
+        seen = ([int(x) for x in str(calibration["last_seen_claude_code"]).split(".")[:3]] + [0, 0])[:3]
+        cal_v = ([int(x) for x in str(calibration["calibrated_for_claude_code"]).split(".")[:3]] + [0, 0])[:3]
+        if seen[:2] > cal_v[:2]:
+            calibration["stale"] = True
+        elif seen[:2] == cal_v[:2] and seen[2] > cal_v[2]:
+            age = None
+            try:
+                age = (datetime.now().date()
+                       - datetime.strptime(str(calibration.get("calibrated_on")), "%Y-%m-%d").date()).days
+            except Exception:
+                pass
+            calibration["stale"] = (seen[2] - cal_v[2]) >= STALE_PATCHES or \
+                (age is not None and age >= STALE_DAYS)
     except Exception:
         pass
 
