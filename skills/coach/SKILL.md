@@ -25,11 +25,11 @@ plugin's own hooks), `scorecard.json`, `flags/reviewed-YYYY-MM-DD`.
 
 ## Journal vocabulary
 
-Each JSONL line: `{v, ts, event, project, tool?, category?, note?, effort?}`.
+Each JSONL line: `{v, ts, event, project, tool?, category?, error_class?, exit_code?, note?, effort?}`.
 
 | event | Meaning | Role |
 |---|---|---|
-| `tool_failure` | A tool call failed; for Bash, `category` ∈ test/lint/build/install/git/other | friction |
+| `tool_failure` | A tool call failed; for Bash, `category` ∈ test/lint/build/install/git/windows/python/node/network/media/files/other; any tool: `error_class` ∈ cmd_not_found/module_missing/no_such_file/permission/timeout/network/http_error/too_large/syntax/usage/interrupt/other, plus `exit_code` when the error carried one (both derived locally; the error text is never stored) | friction |
 | `tool_success` | A Bash call SUCCEEDED in a tracked category — the denominator for `failure_ratio` (busy day ≠ bad day) | rate denominator |
 | `tool_use` | A landscape lever was used; `tool` → capability (plan_mode/subagent/worktree/mcp/web/lsp/background) | capability signal (credit + absence) |
 | `session_start` | Session began; carries `effort` level and `pmode` (permission mode) | effort signal (O11); `pmode` → habitual `bypassPermissions` is an S3 symptom to ask about |
@@ -42,7 +42,10 @@ Each JSONL line: `{v, ts, event, project, tool?, category?, note?, effort?}`.
 | `stop` | A response cycle ended | denominator / session activity |
 
 `session_shapes.py` turns these into `capabilities`, `failure_ratio`,
+`failure_breakdown` (per failure kind: error classes + top projects),
 `effort_distribution`, and `unused_lever_warrants` — read those, don't re-derive.
+`files` and `other` have NO failure ratio by design (their successes are not
+journaled) — never present their counts as a rate of failure.
 
 **Always normalize per 100 turns** (`totals.friction_per_100_turns`). Raw counts lie
 when activity varies, and per-SESSION rates lie worse: session count is a behavior
@@ -106,10 +109,21 @@ action and it is done. Mention it once as status if relevant ("still blocked on 
 DBA login") and move on; it re-enters only if the user says the blocker cleared or
 changed.
 
-**Attribution before treatment.** Failure counts conflate three different things.
-For each new group ask ONE attribution question — "agent's mistake, environment
-(flaky infra, missing deps), or you deliberately iterating (red-green TDD)?" — and
-record the answer in the group. Environment noise gets an environment fix or nothing;
+**Attribution before treatment.** Failure counts conflate three different things:
+the agent's mistake, the environment (flaky infra, missing deps), or the user
+deliberately iterating (red-green TDD). **Read attribution from the data first:**
+`failure_breakdown` usually answers it — `cmd_not_found`/`module_missing` point at
+the environment, `syntax`/`usage`/`no_such_file` at the agent, `exit_code 1` from
+`test` during a burst at iteration. State that reading as evidence and ask the user
+only to CONFIRM or correct it ("backend-api: 40 of 72 are `no_such_file` from python —
+the agent guessing paths?"), never an open recall question.
+
+**Never ask about what nobody can remember.** Ask attribution only for a group with
+events in the last 7 days. A group whose events are all older is shown as one line of
+statistics, closed as `unattributable (stale)`, and not treated — its friction, if
+real, will recur and be asked about while fresh. When a review covers a long backlog
+(no review for weeks), say so up front and work the last 14 days; older weeks get a
+summary line, not questions. Record the answer in the group. Environment noise gets an environment fix or nothing;
 deliberate iteration is NOT friction (do not propose a lever against the user's own
 workflow); only agent-caused recurrence proceeds to Steps 2–4. Step 0 must compare
 like with like: verify against the same attribution class the action was created for.

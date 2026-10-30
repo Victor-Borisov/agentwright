@@ -425,6 +425,30 @@ history is why every detector in release-check.sh now carries a positive control
   is the rule rung of the ladder — a request, not a guarantee; escalation is the
   open item below.
 
+## Done in v0.13.0 (read attribution from data, not memory — field find, 2026-10-30)
+
+First real coach run on a 3.5-month backlog asked the user to attribute months-old
+failures they could not remember, and most of its output was detector artifacts.
+- [x] **[MAJOR] Coach asked recall questions about stale events** — attribution is now
+  read from data first (confirm, not recall) and asked only for groups with events in
+  the last 7 days; older-only groups close as `unattributable (stale)`; a long backlog
+  is worked as the last 14 days plus a summary line.
+- [x] **[MAJOR] `other` was one opaque bucket** (~60% of all failures) — new derived
+  Bash categories python/node/network/media/windows/files; every failure gets a derived
+  `error_class` + `exit_code` (error text used transiently, never stored —
+  release-check asserts both derivation and absence of the text).
+- [x] **[MAJOR] `other` read as "always fails"** — its successes are not journaled by
+  design, so ratio was 1.0 by construction → `strong` confidence and most thrash flags.
+  `NO_DENOMINATOR` categories now have no ratio, cap at `medium`, never drive thrash,
+  and burst only within one error class.
+- [x] **[MAJOR] Worktree nomination from batch jobs** — one-shot sessions (<= 1 turn:
+  scripts, `claude -p` fan-outs) produced thousands of "overlaps"; and sessions resumed
+  over weeks overlapped everything by span. Overlap is now measured between ACTIVE
+  waves, one-shots excluded (field data: 7288 → 9 overlaps; thrash 36 → 2). O2 rescoped
+  (knowledge v7).
+- [x] **[MINOR] `python3 make.py` classified as build** — `make\b` matched `make.py`.
+- [x] `failure_breakdown` aggregate (per failure kind: error classes + top projects).
+
 ## Done in v0.12.0 (knowledge refresh 2.1.210 → 2.1.312, knowledge v6, 2026-10-30)
 
 First sweep since 2026-07-14: 102 releases, 426 "Added" entries triaged; no change to

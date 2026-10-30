@@ -13,15 +13,18 @@ and always explains why. Top band: **Agent Architect**.
 
 - **Signal journal** — the plugin's own hooks quietly log minimal metadata so it can
   diagnose, not just count pain: Bash failures **and successes** with a locally derived
-  category (test / lint / build / install / git — so a failure *ratio* exists, not a
-  raw count that punishes a busy day); permission prompts and denials; context
+  category (test / lint / build / install / git, plus python / node / network / media /
+  windows / files — so a failure *ratio* exists, not a raw count that punishes a busy
+  day); for every failure, a locally derived error class (command not found, missing
+  module, no such file, permission, timeout, network, HTTP error, syntax, …) and the exit
+  code — so a review can read *why* things fail instead of asking you to remember; permission prompts and denials; context
   compactions (idle compactions — Claude Code compacting a long-idle session to save
   its prompt cache — are told apart by the silence before them and not counted as
   friction); which capability levers you reach for (plan mode, subagents, worktrees,
   MCP, web, LSP, Monitor — the tool name only); the session effort level and permission mode
   (habitual `bypassPermissions` is worth surfacing); and turn/session markers as
   denominators. Only event kind, a safe tool label, category, project name,
-  effort level, permission mode and timestamp are stored — never command text, prompts, or outputs, and
+  effort level, permission mode, error class, exit code and timestamp are stored — never command text, error text, prompts, or outputs, and
   MCP server names are collapsed to `mcp` so private infra names never land in the
   journal.
 - **`/agentwright:log`** — capture a friction note in your own words the moment

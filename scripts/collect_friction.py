@@ -6,8 +6,10 @@ minimal JSONL line to a per-day-per-session pending file.
 
 Privacy contract (Anthropic Software Directory Policy §1.D/§1.F):
   - records only: event kind, a SAFE tool label, a locally derived category,
-    project basename, effort level, timestamp
-  - command text is used transiently to derive the category and never stored
+    a locally derived error class + exit code (failures), project basename,
+    effort level, timestamp
+  - command text and error text are used transiently to derive those labels and
+    are never stored
   - MCP tool names are collapsed to "mcp" — server names may embed private infra
   - never reads transcripts, prompts, tool outputs
 
@@ -31,13 +33,46 @@ CLASSES = [
                 r"make\s+test|python3?\s+-m\s+(pytest|unittest))\b"),
     ("lint",    r"\b(eslint|ruff|flake8|pylint|prettier|black|isort|clippy|golangci-lint|"
                 r"shellcheck|stylelint|mypy|npm\s+run\s+lint|yarn\s+(run\s+)?lint)\b"),
-    ("build",   r"\b(npm\s+run\s+build|yarn\s+(run\s+)?build|pnpm\s+(run\s+)?build|make\b|cmake|"
+    ("build",   r"\b(npm\s+run\s+build|yarn\s+(run\s+)?build|pnpm\s+(run\s+)?build|\bmake(\s|$)|cmake|"
                 r"cargo\s+build|go\s+build|dotnet\s+build|mvn|gradlew?|tsc\b|webpack|"
                 r"vite\s+build|docker\s+build|msbuild)"),
     ("install", r"\b(npm\s+(i|ci|install)|yarn\s+add|pnpm\s+(add|i|install)|pip3?\s+install|"
                 r"apt(-get)?\s+install|brew\s+install|cargo\s+add|dotnet\s+add)\b"),
     ("git",     r"(^|&&|;)\s*git\b"),
+    # Finer split of what used to be one opaque "other" bucket — so a review can
+    # say WHAT kind of command fails without anyone having to remember it.
+    ("windows", r"\b(powershell(\.exe)?|pwsh|cmd(\.exe)?\s+/c)\b|\.exe\b"),
+    ("python",  r"\b(python3?|py|uv\s+run|poetry\s+run|jupyter)\b"),
+    ("node",    r"\b(node|npx|tsx|ts-node|deno|bun)\b|\bnpm\s+run\b"),
+    ("network", r"\b(curl|wget|ssh|scp|rsync|ping|nc|dig|nslookup)\b"),
+    ("media",   r"\b(ffmpeg|ffprobe|magick|convert|sox|yt-dlp|pandoc|libreoffice|soffice)\b"),
+    ("files",   r"^\s*(cd\s+\S+\s*&&\s*)?(ls|cat|head|tail|cp|mv|rm|mkdir|rmdir|touch|find|"
+                r"grep|sed|awk|tar|unzip|zip|chmod|chown|ln|wc|sort|du|df|stat)\b"),
 ]
+
+# categories whose SUCCESSES are not journaled (too frequent to be worth a line):
+# their failures carry no denominator, so no failure ratio exists for them
+NO_DENOMINATOR = ("other", "files")
+
+# failure error classes, derived from the hook's `error` text (never stored)
+ERROR_CLASSES = [
+    ("cmd_not_found", r"command not found|is not recognized as (an internal|the name)|No such command"),
+    ("module_missing", r"ModuleNotFoundError|No module named|Cannot find module|ImportError|"
+                       r"cannot open shared object"),
+    ("no_such_file",  r"No such file or directory|FileNotFoundError|ENOENT|cannot find the path|"
+                      r"does not exist|not found: /|cannot access"),
+    ("permission",    r"Permission denied|EACCES|EPERM|Access is denied|Operation not permitted"),
+    ("timeout",       r"timed out|timeout|Timeout"),
+    ("network",       r"Could not resolve host|Connection refused|ECONNREFUSED|ECONNRESET|ETIMEDOUT|"
+                      r"Name or service not known|getaddrinfo|SSL|certificate|Network is unreachable"),
+    ("http_error",    r"(status(\s+code)?|HTTP)[^0-9\n]{0,4}[45]\d\d"),
+    ("too_large",     r"exceeds (the )?maximum|too large|token limit|too many tokens|file is too big"),
+    ("syntax",        r"SyntaxError|syntax error|unexpected token|unexpected EOF|parse error|"
+                      r"invalid syntax|Unterminated"),
+    ("usage",         r"\busage:|unrecognized (option|argument)|invalid option|unknown (option|flag)|"
+                      r"missing (required )?argument"),
+]
+EXIT_RE = re.compile(r"Exit code (\d{1,3})")
 
 # events whose Bash command should be classified into a category
 CLASSIFY = ("tool_failure", "tool_success")
@@ -60,6 +95,21 @@ def classify(command):
     return "other"
 
 
+def error_facts(data):
+    """(error_class, exit_code) for a failure; labels only, the text is dropped."""
+    if data.get("is_interrupt") is True:
+        return "interrupt", None
+    text = str(data.get("error") or "")[:4000]
+    if not text:
+        return "", None
+    m = EXIT_RE.search(text)
+    code = int(m.group(1)) if m else None
+    for name, pattern in ERROR_CLASSES:
+        if re.search(pattern, text):
+            return name, code
+    return "other", code
+
+
 def main():
     try:
         data = json.load(sys.stdin)
@@ -77,8 +127,12 @@ def main():
 
     # tool_success is only interesting as a per-category DENOMINATOR for the
     # failure ratio; "other" successes (every ls/cat) are pure noise — drop them.
-    if event == "tool_success" and category in ("", "other"):
+    if event == "tool_success" and category in ("",) + NO_DENOMINATOR:
         return
+
+    error_class, exit_code = ("", None)
+    if event == "tool_failure":
+        error_class, exit_code = error_facts(data)
 
     effort = ""
     pmode = ""
@@ -96,6 +150,10 @@ def main():
         line["tool"] = tool
     if category:
         line["category"] = category
+    if error_class:
+        line["error_class"] = error_class
+    if exit_code is not None:
+        line["exit_code"] = exit_code
     if effort:
         line["effort"] = effort
     if pmode:

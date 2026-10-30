@@ -341,6 +341,21 @@ if [ -n "$FH" ]; then
       else
         fail "collect-friction wrote no tool_failure event into the isolated HOME"
       fi
+      printf '%s' '{"session_id":"rc2","cwd":"/tmp/Proj","tool_name":"Bash","tool_input":{"command":"python3 rc_private_cmd.py"},"error":"Exit code 127\nbash: rc_private_tool: command not found"}' \
+        | iso bash scripts/collect-friction.sh tool_failure >/dev/null 2>&1
+      rc2="$(cat "$FH"/.claude/agentwright/pending/*rc2*.jsonl 2>/dev/null)"
+      if printf '%s' "$rc2" | grep -q '"category": "python"' \
+         && printf '%s' "$rc2" | grep -q '"error_class": "cmd_not_found"' \
+         && printf '%s' "$rc2" | grep -q '"exit_code": 127'; then
+        pass "collect-friction derives category, error class and exit code"
+      else
+        fail "collect-friction did not derive python/cmd_not_found/127 from a failure payload"
+      fi
+      if printf '%s' "$rc2" | grep -q 'rc_private'; then
+        fail "PRIVACY: command or error text reached the journal"
+      else
+        pass "command and error text stay out of the journal"
+      fi
       if [ -s "$FH/.claude/agentwright/state/py" ]; then
         pass "interpreter cache created ($(head -1 "$FH/.claude/agentwright/state/py"))"
       else

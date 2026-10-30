@@ -57,7 +57,10 @@ references, bump versions per the table above.
    presence, or a new aggregate (`failure_ratio`, `effort_distribution`,
    `unused_lever_warrants`).
 6. `scripts/collect_friction.py` — extend `CLASSES` only if the event carries a
-   classifiable Bash command. For capability events, add the tool to the landscape
+   classifiable Bash command, `ERROR_CLASSES` only for a failure text pattern worth
+   telling apart (labels only; the text is never stored — release-check asserts it).
+   A category whose successes are not journaled goes into `NO_DENOMINATOR` in BOTH
+   `collect_friction.py` and `session_shapes.py`, or it will read as "always fails". For capability events, add the tool to the landscape
    matcher in hooks.json and a label to `CAP_MAP`; the .sh is a thin wrapper.
 7. `scripts/scan_artifacts.py` — mirror any new journal aggregate the `/score` skill
    needs (it reads scan output, not session_shapes) — e.g. `capabilities_used`.

@@ -1,6 +1,6 @@
 # Agentwright Checklist
 
-**Knowledge version: 6 · calibrated for Claude Code 2.1.312** (see
+**Knowledge version: 7 · calibrated for Claude Code 2.1.312** (see
 `calibration.json`). Items added in later knowledge versions must carry a
 `(new in vN)` marker until scored once — the score report treats them as "the bar
 moved", never as user regression (see scoring.md § Evolution contract).

@@ -32,6 +32,14 @@ BURST_MIN_FAILURES = 3
 # session event in the preceding IDLE_COMPACT_GAP_MIN is idle, not context pressure.
 IDLE_COMPACT_GAP_MIN = 50
 FRICTION_EVENTS = {"tool_failure", "permission_denied", "compact", "manual"}
+# Bash categories whose successes the collector does not journal (too frequent):
+# no failure ratio exists for them, so a ratio must never be imputed (it would read
+# 1.0 — "always fails" — by construction). Mirrors collect_friction.NO_DENOMINATOR.
+NO_DENOMINATOR = {"other", "files"}
+# A session with <= this many turns is a one-shot run (`claude -p`, a script, an
+# SDK fan-out) — a hundred of them "overlapping" is a batch job, not two people
+# sharing a checkout, so they are left out of overlap (worktree) detection.
+ONE_SHOT_MAX_TURNS = 1
 FNAME_RE = re.compile(r"^pending-\d{4}-\d{2}-\d{2}-(?P<suffix>.+)\.jsonl$")
 
 # tool_use tool labels → capability the user demonstrably reached for
@@ -101,14 +109,19 @@ def shape_of(key, entries):
 
     waves = 1
     activity = turns or times
+    spans = [[activity[0], activity[0]]]  # active intervals, split at wave gaps
     for prev, cur in zip(activity, activity[1:]):
         if (cur - prev) >= timedelta(minutes=WAVE_GAP_MIN):
             waves += 1
+            spans.append([cur, cur])
+        else:
+            spans[-1][1] = cur
 
     counts = {}
     fail_cat = {}     # tool_failure by category
     ok_cat = {}       # tool_success by category (the failure-ratio denominator)
     caps = set()      # capabilities demonstrably used this session
+    kinds = {}        # failure kind (Bash category, else tool) → {error_class: n}
     effort = ""
     pmode = ""
     prev_ts = None
@@ -120,6 +133,11 @@ def shape_of(key, entries):
         prev_ts = e["_ts"]
         counts[ev] = counts.get(ev, 0) + 1
         cat = str(e.get("category", "")) if e.get("category") else ""
+        if ev == "tool_failure":
+            kind = cat or str(e.get("tool", "unknown"))
+            ecls = str(e.get("error_class", "")) or "unclassified"
+            kinds.setdefault(kind, {})
+            kinds[kind][ecls] = kinds[kind].get(ecls, 0) + 1
         if ev == "tool_failure" and cat:
             fail_cat[cat] = fail_cat.get(cat, 0) + 1
         elif ev == "tool_success" and cat:
@@ -134,16 +152,28 @@ def shape_of(key, entries):
             if e.get("pmode"):
                 pmode = str(e["pmode"])
 
-    categories = fail_cat  # back-compat name used below (bursts, output)
+    # A burst = the same kind of failure repeating fast. For catch-all categories
+    # (NO_DENOMINATOR) "same kind" also needs the same error class — three unrelated
+    # commands failing three different ways is not one hole being dug deeper.
+    groups = {}
+    for e in entries:
+        if e.get("event") != "tool_failure" or not e.get("category"):
+            continue
+        cat = str(e["category"])
+        if cat in NO_DENOMINATOR and not e.get("error_class"):
+            continue  # pre-v0.13 line: no error class, so "same kind" is unknowable
+        gkey = (cat, str(e["error_class"])) if cat in NO_DENOMINATOR else (cat, None)
+        groups.setdefault(gkey, []).append(e["_ts"])
     bursts = []
-    for cat in categories:
-        fails = [e["_ts"] for e in entries
-                 if e.get("event") == "tool_failure" and e.get("category") == cat]
+    for (cat, ecls), fails in groups.items():
         for i in range(len(fails) - BURST_MIN_FAILURES + 1):
             span = fails[i + BURST_MIN_FAILURES - 1] - fails[i]
             if span <= timedelta(minutes=BURST_WINDOW_MIN):
-                bursts.append({"category": cat, "failures": BURST_MIN_FAILURES,
-                               "within_minutes": round(span.total_seconds() / 60, 1)})
+                b = {"category": cat, "failures": BURST_MIN_FAILURES,
+                     "within_minutes": round(span.total_seconds() / 60, 1)}
+                if ecls is not None:
+                    b["error_class"] = ecls
+                bursts.append(b)
                 break
 
     projects = sorted({str(e.get("project", "unknown")) for e in entries})
@@ -157,13 +187,14 @@ def shape_of(key, entries):
         "activity_waves": waves,
         "events": counts,
         "failure_categories": fail_cat,
+        "failure_kinds": kinds,
         "success_categories": ok_cat,
         "capabilities_used": sorted(caps),
         "effort": effort,
         "pmode": pmode,
         "failure_bursts": bursts,
         "friction_events": sum(n for ev, n in counts.items() if ev in FRICTION_EVENTS),
-        "_start": times[0], "_end": times[-1],
+        "_start": times[0], "_end": times[-1], "_spans": spans,
     }
 
 
@@ -172,16 +203,25 @@ def find_overlaps(shapes):
     for i in range(len(shapes)):
         for j in range(i + 1, len(shapes)):
             a, b = shapes[i], shapes[j]
+            if a["events"].get("turn", 0) <= ONE_SHOT_MAX_TURNS \
+                    or b["events"].get("turn", 0) <= ONE_SHOT_MAX_TURNS:
+                continue
             common = set(a["projects"]) & set(b["projects"])
             if not common:
                 continue
-            start = max(a["_start"], b["_start"])
-            end = min(a["_end"], b["_end"])
-            if start < end:
+            # Overlap of ACTIVE waves, not of first-to-last span: a session resumed
+            # over weeks would otherwise "overlap" everything opened in between.
+            seconds = 0.0
+            for a0, a1 in a["_spans"]:
+                for b0, b1 in b["_spans"]:
+                    start, end = max(a0, b0), min(a1, b1)
+                    if start < end:
+                        seconds += (end - start).total_seconds()
+            if seconds > 0:
                 overlaps.append({
                     "sessions": [a["session"], b["session"]],
                     "projects": sorted(common),
-                    "overlap_minutes": round((end - start).total_seconds() / 60, 1),
+                    "overlap_minutes": round(seconds / 60, 1),
                 })
     return overlaps
 
@@ -201,6 +241,7 @@ def main():
     for s in shapes:
         s.pop("_start", None)
         s.pop("_end", None)
+        s.pop("_spans", None)
 
     manual.sort(key=lambda e: e["_ts"])
     manual_notes = [{
@@ -221,6 +262,23 @@ def main():
     capabilities = {c: {"used": cap_sessions[c] > 0, "sessions": cap_sessions[c]} for c in ALL_CAPS}
 
     # ---- failure ratio + per-category recurrence (busy day != bad day) ----
+    # ---- failure breakdown: what fails, how, and where — so attribution can be
+    # read from the data instead of asked from the user's memory ----
+    breakdown = {}
+    for s in shapes:
+        for kind, classes in s["failure_kinds"].items():
+            b = breakdown.setdefault(kind, {"failures": 0, "error_classes": {}, "projects": {}})
+            n = sum(classes.values())
+            b["failures"] += n
+            for c, k in classes.items():
+                b["error_classes"][c] = b["error_classes"].get(c, 0) + k
+            for p in s["projects"]:
+                b["projects"][p] = b["projects"].get(p, 0) + n
+    for b in breakdown.values():
+        b["error_classes"] = dict(sorted(b["error_classes"].items(), key=lambda x: -x[1]))
+        b["projects"] = dict(sorted(b["projects"].items(), key=lambda x: -x[1])[:5])
+    breakdown = dict(sorted(breakdown.items(), key=lambda x: -x[1]["failures"]))
+
     fail_tot, ok_tot, cat_sessions = {}, {}, {}
     for s in shapes:
         for cat, n in s["failure_categories"].items():
@@ -233,7 +291,7 @@ def main():
         f, o = fail_tot.get(cat, 0), ok_tot.get(cat, 0)
         failure_ratio[cat] = {
             "failures": f, "successes": o,
-            "ratio": round(f / (f + o), 2) if (f + o) else None,
+            "ratio": None if cat in NO_DENOMINATOR else (round(f / (f + o), 2) if (f + o) else None),
         }
 
     # ---- confidence grade per failing category (evidence density) ----
@@ -244,8 +302,12 @@ def main():
     for cat in fail_tot:
         n = cat_sessions.get(cat, 0)
         r = failure_ratio[cat]["ratio"]
-        rr = r if r is not None else 1.0
         f = fail_tot[cat]
+        if cat in NO_DENOMINATOR:
+            # no ratio → never "strong"; recurrence alone earns at most medium
+            friction_confidence[cat] = "medium" if n >= STRONG_MIN_SESSIONS else "weak"
+            continue
+        rr = r if r is not None else 1.0
         if n >= STRONG_MIN_SESSIONS and rr >= THRASH_RATIO:
             friction_confidence[cat] = "strong"
         elif n >= STRONG_MIN_SESSIONS or (n == 1 and f >= THRASH_MIN_FAILS and rr >= THRASH_RATIO):
@@ -273,7 +335,7 @@ def main():
         bursts = s["failure_bursts"]
         worst = None
         for cat, f in s["failure_categories"].items():
-            if f < THRASH_MIN_FAILS:
+            if f < THRASH_MIN_FAILS or cat in NO_DENOMINATOR:
                 continue
             o = s["success_categories"].get(cat, 0)
             r = f / (f + o)
@@ -338,6 +400,7 @@ def main():
         "failure_ratio": failure_ratio,
         "friction_confidence": friction_confidence,
         "category_sessions": cat_sessions,
+        "failure_breakdown": breakdown,
         "effort_distribution": effort_dist,
         "pmode_distribution": pmode_dist,
         "unused_lever_warrants": warrants,

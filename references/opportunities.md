@@ -65,8 +65,12 @@ re-detect via falling wave/compact rates.
 **Helps when:** two agents/sessions work the same repo at once — one checkout means
 stepping on each other's edits and branch juggling.
 **Not when:** the parallel sessions touch different repos, or one is read-only.
-**Signature:** two sessions with overlapping time ranges in the **same project**
-(`overlaps[]` non-empty) AND `capabilities.worktree.used == false`. The direct
+**Signature:** two sessions whose ACTIVE waves overlap in the **same project**
+(`overlaps[]` non-empty) AND `capabilities.worktree.used == false`. Rescoped in v7:
+overlap is measured between activity waves, not first-to-last spans (a session
+resumed over weeks no longer "overlaps" everything opened meanwhile), and one-shot
+sessions (≤ 1 turn — `claude -p`, scripts, SDK fan-outs) are excluded (a batch job
+is not two streams sharing a checkout). The direct
 capability signal is the strong half: precomputed in `unused_lever_warrants`
 (`lever: worktree`). If `worktree.used` is true, the user already knows the lever —
 do NOT nominate; instead credit landscape (see § Capability signals). Category `git`
